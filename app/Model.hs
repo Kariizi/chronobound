@@ -33,6 +33,8 @@ data Player = Player
     , dashTimer :: Float
     , dashCooldownRemaining :: Float 
     , dashDirection :: (Float, Float)
+    -- Rewind: 
+    , rewindCooldownRemaining :: Float
     , equippedWeapon :: Weapon
     } deriving (Show, Eq)
 
@@ -141,6 +143,7 @@ initialPlayer =
         , dashTimer = 0
         , dashCooldownRemaining = 0
         , dashDirection = (1, 0)
+        , rewindCooldownRemaining = 0
         , equippedWeapon = Weapon
     { weaponName = "Flintlock Pistol"
     , weaponDamage = 5
@@ -164,7 +167,10 @@ meleeAttackDistance = 40
 
 meleeHitRadius :: Float 
 meleeHitRadius = 35 
-        
+
+rewindCooldown :: Float 
+rewindCooldown = 5.0
+
 
 -- Inital Game World
 initialWorld :: World 

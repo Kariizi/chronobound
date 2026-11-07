@@ -99,6 +99,20 @@ dashMovement dt p =
 
     in p { position = (newX, newY) }
 
+-- For rewind cooldown
+updateRewind :: Float -> Player -> Player
+updateRewind dt p =
+    let
+        -- Retrieves current rewind cooldown
+        currentCooldown = rewindCooldownRemaining p
+
+        -- Decreases cooldown by dt, preventing negative values
+        newCooldown = max 0 (currentCooldown - dt)
+
+    -- Updates player with new rewind cooldown
+    in p { rewindCooldownRemaining = newCooldown }
+
+
 -- Recording players snapshot
 recordPlayerSnapshot:: Float -> World -> World 
 recordPlayerSnapshot dt world = 
@@ -134,32 +148,38 @@ recordPlayerSnapshot dt world =
 
     in world { playerHistory = updatedHistory }
 
--- Rewind Functionality 
+-- Rewind Functionality
 rewindPlayer :: World -> World
-rewindPlayer world =
-    let
-        history = playerHistory world
-        p = player world
+rewindPlayer world
+    -- Check if rewind is still on cooldown
+    | rewindCooldownRemaining (player world) > 0 = world
+    | otherwise =
+        let
+            history = playerHistory world
+            p = player world
 
-    in case history of
-        -- For empty history return current world
-        [] -> world
+        in case history of
+            -- For empty history return current world
+            [] -> world
 
-        --  For history with snapshots
-        _ ->
-            let
-                -- Gets the final element of list
-                oldestSnapshot = last history
+            -- For history with snapshots
+            _ ->
+                let
+                    -- Gets the final element of list
+                    oldestSnapshot = last history
 
-                rewoundPlayer = p
-                    -- Retrieves the snapshot position of oldest snapshot + health
-                    { position = snapshotPosition oldestSnapshot
-                    , health = snapshotHealth oldestSnapshot
+                    rewoundPlayer = p
+                        -- Retrieves the snapshot position of oldest snapshot + health
+                        { position = snapshotPosition oldestSnapshot
+                        , health = snapshotHealth oldestSnapshot
+
+                        -- Start the rewind cooldown
+                        , rewindCooldownRemaining = rewindCooldown
+                        }
+
+                -- Replaces current player with new player
+                -- Clear old snapshots
+                in world
+                    { player = rewoundPlayer
+                    , playerHistory = []
                     }
-            
-            -- Replaces current player with new player
-            -- Clear old snapshots
-            in world
-                { player = rewoundPlayer
-                , playerHistory = []
-                }
