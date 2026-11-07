@@ -42,7 +42,7 @@ moveMobs dt world =
         -- Only chase if the player is in this mob's zone
         updateMob mob
             | mobZone mob == playerZone = moveMob dt p mob
-            | otherwise                 = mob
+            | otherwise                 = moveMob (dt * otherZoneSpeedFactor) p mob
 
         oldMobs = mobs world
         newMobs = map updateMob oldMobs
