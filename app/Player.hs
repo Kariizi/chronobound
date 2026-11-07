@@ -8,16 +8,27 @@ applyUpgrade :: Upgrade -> Player -> Player
 applyUpgrade upgrade p = 
     -- Checks upgrade selected
     case upgrade of 
+        -- Adjust this later 
         HealthUpgrade amount -> 
             let 
                 currentHP = health p 
-                maximum
-            newMaxHP = maxHealth + amount
-            newHp = health + amount
+                maximumHP = maxHealth p 
+
+                newMaxHP = maximumHP + amount
+                newHP = currentHP + amount
+            in p { health = newHP, maxHealth = newMaxHP }
         SpeedUpgrade  amount -> 
-            newMoveSpeed = speed + amount 
+            let 
+                currentSpeed = speed p 
+
+                newMoveSpeed = currentSpeed + amount 
+            in p {speed = newMoveSpeed }
         DamageUpgrade  amount ->
-            newDamage = attackDamage + amount 
+            let
+                currentDamage = attackDamage p 
+            
+                newDamage = currentDamage + amount 
+            in p {attackDamage = newDamage }
 
 -- Player Movement: Takes deltatime & player, returns a player
 movePlayer :: Float -> Player -> Player 
