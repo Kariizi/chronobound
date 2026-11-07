@@ -3,7 +3,6 @@
 -- Players or Mobs, etc 
 
 module Model where
-import Model (Upgrade(SpeedUpgrade))
 
 -- Storing the game world:
 data World = World 
@@ -36,11 +35,11 @@ data Upgrade
 initialPlayer :: Player 
 initialPlayer = 
     Player
-        { position = (400, 300)
+        { position = (0, 0)
         , velocity = (0,0)
         , health = 100
         , maxHealth = 300 
-        , moveSpeed = 2.0
+        , moveSpeed = 200.0
         , attackDamage = 3
         }
 

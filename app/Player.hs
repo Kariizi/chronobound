@@ -19,10 +19,10 @@ applyUpgrade upgrade p =
             in p { health = newHP, maxHealth = newMaxHP }
         SpeedUpgrade  amount -> 
             let 
-                currentSpeed = speed p 
+                currentSpeed = moveSpeed p 
 
                 newMoveSpeed = currentSpeed + amount 
-            in p {speed = newMoveSpeed }
+            in p {moveSpeed = newMoveSpeed }
         DamageUpgrade  amount ->
             let
                 currentDamage = attackDamage p 
@@ -49,12 +49,9 @@ movePlayer dt p =
     -- in uses those values defined 
     in p { position = (newX, newY) }
 
--- Player Upgrades: 
-upgradePlayerHealth :: Int -> Player -> Player 
-
 -- Player Damage:
 takeDamage :: Int -> Player -> Player 
-take takeDamage p = 
+takeDamage damage p = 
     let 
         -- Retrieves current players health 
         currentHP = health p 

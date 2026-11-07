@@ -36,16 +36,25 @@ handleInput (EventKey (Char 's') Down _ _) world =
 
     in world { player = newPlayer }
 
-handleInput (EventKey (Char 'a') Down _ _) world = 
+handleInput (EventKey (Char 'd') Down _ _) world = 
     let 
         p = player world 
         newPlayer = p { velocity = (1,0) } 
 
     in world { player = newPlayer }
 
--- Ignores other events 
-handleInput _ world = world 
+-- Handles key release (if player stop pressing button)
 
+handleInput (EventKey (Char key) Up _ _) world
+-- Checks whether the released key is one of WASD using elem, then stops player movement if it is
+-- Takes key and compares to each character, returns boolean
+    | key `elem` "wasd" =
+        let
+            p = player world
+            newPlayer = p { velocity = (0, 0) }
+        in world { player = newPlayer }
+
+handleInput _ model = model 
 
 -- Updating players position on game world 
 updateWorld :: Float -> World -> World 
@@ -58,6 +67,3 @@ updateWorld dt world =
 
     in world { player = movedPlayer }
 
-
-
-handleInput _ model = model 
