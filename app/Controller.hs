@@ -1,3 +1,4 @@
+
 module Controller where
 
 import Graphics.Gloss.Interface.Pure.Game

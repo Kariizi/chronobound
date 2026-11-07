@@ -1,3 +1,4 @@
+
 module Abilities where
 import Model
 import Data.List (minimumBy)
