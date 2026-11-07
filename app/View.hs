@@ -70,6 +70,10 @@ drawDamageNumber number =
 
         textScale = 0.15
 
+        numberColor = if damageHitsPlayer number
+            then makeColor 1.0 0.2 0.2 1.0 
+            else makeColor 1.0 1.0 0.2 1.0 
+
     in translate x y
         (scale textScale textScale
-            (color yellow (Text ("-" ++ damageText))))
+            (color numberColor (Text ("-" ++ damageText))))
