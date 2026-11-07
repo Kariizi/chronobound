@@ -8,6 +8,7 @@ module Model where
 data World = World 
     { player :: Player 
     , mobs :: [Mob]
+    , heldKeys :: [Char]
     , projectiles :: [Projectile]
     } deriving (Show, Eq)
 
@@ -87,6 +88,7 @@ initialWorld :: World
 initialWorld = 
     World
         { player = initialPlayer
+        , heldKeys = []
         , mobs = [initialMob]
         , projectiles = []
         }
