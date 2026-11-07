@@ -63,3 +63,38 @@ takeDamage damage p =
 isDead :: Player -> Bool
 isDead p = health p == 0 
 
+-- Player Dashing 
+isDashing :: Player -> Bool 
+isDashing p = dashTimer p > 0 
+
+-- Dash if cooldown = 0, save direction where dash starts
+startDash :: (Float, Float) -> Player -> Player 
+startDash direction p = 
+    if dashCooldownRemaining p > 0
+        then p 
+        else p { 
+            dashTimer = dashDuration
+            , dashCooldownRemaining = dashCooldown
+            , dashDirection = direction
+        }
+
+updateDash :: Float -> Player -> Player 
+updateDash dt p = 
+    let 
+        currentTimer = dashTimer p 
+        currentCooldown = dashCooldownRemaining p 
+
+        newTimer = max 0 (currentTimer - dt)
+        newCooldown = max 0 (currentCooldown - dt)
+    in p { dashTimer = newTimer, dashCooldownRemaining = newCooldown}
+
+dashMovement :: Float -> Player -> Player 
+dashMovement dt p = 
+    let 
+        (x, y) = position p
+        (dx, dy) = dashDirection p 
+
+        newX = x + (dx * dashSpeed * dt)
+        newY = y + (dy * dashSpeed * dt)
+
+    in p { position = (newX, newY) }
