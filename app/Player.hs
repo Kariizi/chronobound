@@ -98,3 +98,68 @@ dashMovement dt p =
         newY = y + (dy * dashSpeed * dt)
 
     in p { position = (newX, newY) }
+
+-- Recording players snapshot
+recordPlayerSnapshot:: Float -> World -> World 
+recordPlayerSnapshot dt world = 
+    let 
+        p = player world 
+
+        -- Creates new player snapshot
+        newSnapshot = PlayerSnapshot 
+            { snapshotPosition = position p
+            , snapshotHealth = health p 
+            , snapshotAge = 0
+            }
+
+        -- Takes on snapshot
+        ageSnapshot snapshot = 
+            snapshot 
+                -- Retrieves snapshotAge of snapshot, adds dt
+                { snapshotAge = snapshotAge snapshot + dt }
+
+        -- Retrieves all snapshots, and map applies ageSnapshot to every snapshot
+        ageHistory = map ageSnapshot (playerHistory world)
+
+        recentHistory =  filter isRecent ageHistory
+
+        isRecent snapshot
+            -- Takes snapshot, and compares if age < 2 
+            | snapshotAge snapshot <= 2.0 = True
+            | otherwise = False
+
+        
+        -- Add new snapshot to front of the list
+        updatedHistory = newSnapshot : recentHistory 
+
+    in world { playerHistory = updatedHistory }
+
+-- Rewind Functionality 
+rewindPlayer :: World -> World
+rewindPlayer world =
+    let
+        history = playerHistory world
+        p = player world
+
+    in case history of
+        -- For empty history return current world
+        [] -> world
+
+        --  For history with snapshots
+        _ ->
+            let
+                -- Gets the final element of list
+                oldestSnapshot = last history
+
+                rewoundPlayer = p
+                    -- Retrieves the snapshot position of oldest snapshot + health
+                    { position = snapshotPosition oldestSnapshot
+                    , health = snapshotHealth oldestSnapshot
+                    }
+            
+            -- Replaces current player with new player
+            -- Clear old snapshots
+            in world
+                { player = rewoundPlayer
+                , playerHistory = []
+                }
