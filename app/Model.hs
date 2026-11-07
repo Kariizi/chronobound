@@ -7,6 +7,7 @@ module Model where
 -- Storing the game world:
 data World = World 
     { player :: Player 
+    , heldKeys :: [Char]
     } deriving (Show, Eq)
 
 -- Storing information about the player
@@ -48,5 +49,7 @@ initialWorld :: World
 initialWorld = 
     World
         { player = initialPlayer
+        -- Initially no keys are pressed
+        , heldKeys = []
         }
 
