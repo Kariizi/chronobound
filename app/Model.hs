@@ -113,6 +113,12 @@ dashDuration = 0.12
 
 dashCooldown :: Float 
 dashCooldown = 0.8
+
+meleeAttackDistance :: Float 
+meleeAttackDistance = 40 
+
+meleeHitRadius :: Float 
+meleeHitRadius = 35 
         
 
 -- Inital Game World

@@ -36,13 +36,6 @@ handleInput (EventKey (Char key) Up _ _) world
         in world { heldKeys = newKeys }
 
 -- Melee attacking with Space
-handleInput (EventKey (SpecialKey KeySpace) Down _ _) world =
-    let
-        p = player world
-        attackingPlayer = startAttack p
-
-    in world { player = attackingPlayer }
-
 handleInput (EventKey (SpecialKey KeySpace) Down _ _) world 
     -- Checks if attack is on cooldown, if so return original world
     | cooldownRemaining p > 0 = world 

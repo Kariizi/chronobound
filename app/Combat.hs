@@ -39,7 +39,7 @@ isMobInRange p mob =
         (mx, my) = mobPosition mob 
 
         -- Gets attack position 
-        attackDistance = 40 
+        attackDistance = meleeAttackDistance
         attackX = px + fx * attackDistance 
         attackY = py + fy * attackDistance
 
@@ -48,7 +48,7 @@ isMobInRange p mob =
 
         -- Distance mov can be for it to be hit (units from centre)
         -- Square to get squared for comparison  
-        hitRadius = 35 
+        hitRadius = meleeHitRadius
 
     -- Checks if the distance from mob and centre is less than meaning its inside attack 
     in distanceSquared <= hitRadius * hitRadius 
@@ -69,5 +69,7 @@ performMeleeAttackMob world =
         -- Apply the attackMob function to every mob in currentMobs
         -- Create updated list with all new mobs
         updatedMobs = map attackMob currentMobs 
+        -- Takes mob and checks if it returns true for conditon 
+        aliveMobs = filter (\mob -> mobHealth mob >0) updatedMobs
 
-    in world { mobs = updatedMobs }
+    in world { mobs = aliveMobs }

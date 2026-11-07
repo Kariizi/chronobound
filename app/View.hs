@@ -4,6 +4,7 @@ import Graphics.Gloss
 import Model
 import Combat (isAttacking)
 import Player (isDashing)
+import Model (meleeAttackDistance)
 
 -- Drawing the world
 drawWorld :: World -> Picture
@@ -29,7 +30,7 @@ drawWorld world =
             translate x y (color playerColour (circleSolid 20))
 
         -- How far in front of the player the attack appears
-        attackDistance = 40
+        attackDistance = meleeAttackDistance
 
         -- Calculate attack position
         attackX = x + fx * attackDistance
