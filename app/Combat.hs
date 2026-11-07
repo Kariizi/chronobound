@@ -1,6 +1,7 @@
 module Combat where
 
 import Model 
+import Mob (mobTakeDamage)
 
 -- Checks if the player is attacking: checks if the current attack timer is greater than 0 meaning attacking
 isAttacking :: Player -> Bool 
@@ -53,3 +54,20 @@ isMobInRange p mob =
     in distanceSquared <= hitRadius * hitRadius 
 
 -- Mob Take Damage 
+performMeleeAttackMob :: World -> World 
+performMeleeAttackMob world =
+    let 
+        p = player world 
+        damage = attackDamage p 
+        currentMobs = mobs world 
+
+        attackMob mob = 
+            if isMobInRange p mob 
+                then mobTakeDamage damage mob 
+                else mob 
+
+        -- Apply the attackMob function to every mob in currentMobs
+        -- Create updated list with all new mobs
+        updatedMobs = map attackMob currentMobs 
+
+    in world { mobs = updatedMobs }

@@ -73,6 +73,14 @@ colliding :: Mob -> Mob -> Bool
 colliding mob1 mob2 =
     distanceBetweenMobs mob1 mob2 < mobCollisionDistance mob1 mob2
 
+-- Damaging Mob
+mobTakeDamage :: Int -> Mob -> Mob 
+mobTakeDamage damage mob = 
+    let 
+        currentHP = mobHealth mob 
+        newHP = max 0 (currentHP - damage)
+    in mob {mobHealth = newHP}
+
 
 -- collide
 

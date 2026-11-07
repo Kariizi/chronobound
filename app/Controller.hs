@@ -43,6 +43,17 @@ handleInput (EventKey (SpecialKey KeySpace) Down _ _) world =
 
     in world { player = attackingPlayer }
 
+handleInput (EventKey (SpecialKey KeySpace) Down _ _) world 
+    -- Checks if attack is on cooldown, if so return original world
+    | cooldownRemaining p > 0 = world 
+    -- Performs attack: worldWithAttack updates player, performMeleeAttackMob updates mobs HP  
+    | otherwise = performMeleeAttackMob worldWithAttack 
+    where 
+        p = player world 
+        attackingPlayer = startAttack p 
+        -- Replaces the current player with attacking player
+        worldWithAttack = world { player = attackingPlayer }
+
 -- Dashing with F
 handleInput (EventKey (Char 'f') Down _ _) world =
     let
