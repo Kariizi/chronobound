@@ -18,17 +18,14 @@ module Limbo
   )
 where
 
-import Control.Monad (forM_, when)
+import Codec.Picture (PixelRGBA8 (..), imageHeight, imageWidth, pixelAt)
 import Data.Array (Array, bounds, listArray, range, (!))
 import Data.Bits (shiftR, xor)
 import Data.List (minimumBy, sortOn)
 import qualified Data.Map.Strict as M
 import Data.Ord (comparing)
-import Data.Word (Word8)
-import Raylib.Core (beginBlendMode, endBlendMode)
-import Raylib.Core.Shapes
-import Raylib.Core.Textures
-import Raylib.Types hiding (Ray (..))
+import Graphics.Gloss (Picture, pictures)
+import MapArt
 
 
 data Ground
@@ -73,8 +70,8 @@ legend =
     ((250, 250, 250), Tile Slate (Just ClockTower))
   ]
 
-colourToTile :: Color -> Tile
-colourToTile (Color r g b a)
+colourToTile :: PixelRGBA8 -> Tile
+colourToTile (PixelRGBA8 r g b a)
   | a < 128 = Void
   | otherwise = snd (minimumBy (comparing (distance . fst)) legend)
   where
@@ -86,15 +83,16 @@ type Grid = Array (Int, Int) Tile
 
 data Limbo = Limbo
   { lGrid :: Grid,
-    lArt :: M.Map String Texture,
+    lArt :: M.Map String Art,
     lOrder :: [(Int, Int)],
     lStart :: (Float, Float),
     lLand :: (Float, Float, Float, Float)
+  }
 
 loadLimbo :: FilePath -> IO Limbo
 loadLimbo folder = do
   grid <- loadGrid (folder ++ "/map.png")
-  textures <- mapM (\n -> loadTexture (folder ++ "/" ++ n ++ ".png")) artNames
+  art <- loadArtSet folder artNames
   let (_, (maxI, maxJ)) = bounds grid
       tiles = range (bounds grid)
       find thing = [t | t <- tiles, lookupTile grid t == Tile Slate (Just thing)]
@@ -108,7 +106,7 @@ loadLimbo folder = do
   pure
     Limbo
       { lGrid = grid,
-        lArt = M.fromList (zip artNames textures),
+        lArt = art,
         lOrder = sortOn (\(i, j) -> i + j) tiles,
         lStart = start,
         lLand = (minimum is, maximum is + 1, minimum js, maximum js + 1)
@@ -116,12 +114,10 @@ loadLimbo folder = do
 
 loadGrid :: FilePath -> IO Grid
 loadGrid path = do
-  image <- loadImage path
-  colours <- loadImageColors image
-  let w = image'width image
-      h = image'height image
-      rows = listArray ((0, 0), (h - 1, w - 1)) (map colourToTile colours)
-      grid = listArray ((0, 0), (w - 1, h - 1)) [rows ! (j, i) | i <- [0 .. w - 1], j <- [0 .. h - 1]]
+  image <- readRGBA8 path
+  let w = imageWidth image
+      h = imageHeight image
+      grid = listArray ((0, 0), (w - 1, h - 1)) [colourToTile (pixelAt image i j) | i <- [0 .. w - 1], j <- [0 .. h - 1]]
   pure (listArray (bounds grid) [settle grid t (grid ! t) | t <- range (bounds grid)])
 
 
@@ -200,107 +196,82 @@ thingArt t thing = case thing of
 hashT :: (Int, Int) -> Int
 hashT (x, y) = let h = (x * 73856093) `xor` (y * 19349663) `xor` 0x5bd1e995 in abs (h `xor` (h `shiftR` 13))
 
-rgb :: Word8 -> Word8 -> Word8 -> Color
-rgb r g b = Color r g b 255
 
-blit :: Texture -> Float -> Float -> IO ()
-blit tex x y = drawTexture tex (round x) (round y) (rgb 255 255 255)
-
-
-tri :: (Float, Float) -> (Float, Float) -> (Float, Float) -> Color -> IO ()
-tri a b c col
-  | cross < 0 = drawTriangle (vec a) (vec b) (vec c) col
-  | otherwise = drawTriangle (vec a) (vec c) (vec b) col
+-- A faint clock face floating in the sky: (x and y as fractions of the view, radius, minutes past)
+ghostClock :: View -> (Float, Float, Float, Float) -> Picture
+ghostClock view@(viewW, viewH) (fx, fy, r, minutes) =
+  pictures
+    ( [ ringAt view faint r centre,
+        ringAt view (rgba 214 208 240 22) (r - 2) centre
+      ]
+        ++ [rectAt view faint (cx + (r - 4) * sin a) (cy - (r - 4) * cos a) 1 1 | k <- [0 .. 11 :: Int], let a = fromIntegral k / 12 * 2 * pi]
+        ++ [hand (r * 0.8) (minutes / 60), hand (r * 0.5) ((11 + minutes / 60) / 12)]
+    )
   where
-    cross = (fst b - fst a) * (snd c - snd a) - (snd b - snd a) * (fst c - fst a)
+    cx = fx * viewW
+    cy = fy * viewH
+    centre = (cx, cy)
+    faint = rgba 214 208 240 46
+    hand len turns =
+      let a = turns * 2 * pi
+       in lineAt view faint centre (cx + len * sin a, cy - len * cos a)
 
-quad :: (Float, Float) -> (Float, Float) -> (Float, Float) -> (Float, Float) -> Color -> IO ()
-quad a b c d col = tri a b c col >> tri a c d col
+-- Draw limbo into an area of the given size in canvas pixels, with the camera point at its centre.
+-- The result is a gloss Picture centred on (0, 0).
+drawLimbo :: Limbo -> View -> (Float, Float) -> Picture
+drawLimbo l view@(vw, vh) (camX, camY) =
+  pictures
+    ( [sky]
+        ++ moon
+        ++ map (ghostClock view) [(0.12, 0.14, 20, 57), (0.38, 0.08, 13, 52), (0.6, 0.22, 17, 59), (0.27, 0.3, 9, 48), (0.93, 0.36, 11, 55)]
+        ++ concatMap ground [p | p@(_, xy) <- placed, groundVisible xy]
+        ++ concatMap thing [p | p@(_, xy) <- placed, thingVisible xy]
+        ++ [haze]
+    )
+  where
+    sky = skyBands view (24, 20, 40, 255) (92, 86, 116, 255)
 
-vec :: (Float, Float) -> Vector2
-vec (x, y) = Vector2 x y
+    moon =
+      [ discAt view (rgba 220 230 210 22) 30 (vw * 0.82, vh * 0.17),
+        discAt view (rgba 220 230 210 30) 24 (vw * 0.82, vh * 0.17),
+        discAt view (rgb 224 230 212) 18 (vw * 0.82, vh * 0.17),
+        discAt view (rgb 200 206 190) 4 (vw * 0.82 - 6, vh * 0.17 - 4),
+        discAt view (rgb 204 210 194) 3 (vw * 0.82 + 5, vh * 0.17 + 6)
+      ]
 
+    -- pale mist over everything, stronger at the top
+    haze = skyBands view (170, 160, 200, 64) (170, 160, 200, 18)
 
-ghostClock :: (Int, Int) -> (Float, Float, Float, Float) -> IO ()
-ghostClock (viewW, viewH) (fx, fy, r, minutes) = do
-  let cx = fx * fromIntegral viewW
-      cy = fy * fromIntegral viewH
-      faint = Color 214 208 240 46
-      hand len turns =
-        let a = turns * 2 * pi
-         in drawLineV (Vector2 cx cy) (Vector2 (cx + len * sin a) (cy - len * cos a)) faint
-  drawCircleLinesV (Vector2 cx cy) r faint
-  drawCircleLinesV (Vector2 cx cy) (r - 2) (Color 214 208 240 22)
-  forM_ [0 .. 11 :: Int] $ \k -> do
-    let a = fromIntegral k / 12 * 2 * pi
-    drawPixelV (Vector2 (cx + (r - 4) * sin a) (cy - (r - 4) * cos a)) faint
-  hand (r * 0.8) (minutes / 60)
-  hand (r * 0.5) ((11 + minutes / 60) / 12)
+    cx = fromIntegral (round camX :: Int)
+    cy = fromIntegral (round camY :: Int)
+    place t = let (x, y) = tileTop t in (x - cx + vw / 2, y - cy + vh / 2)
+    placed = [(t, place t) | t <- lOrder l]
 
+    groundVisible (x, y) = x > -48 && x < vw + 48 && y > -24 && y < vh + 96
+    thingVisible (x, y) = x > -64 && x < vw + 64 && y > -40 && y < vh + 260
+    at = tileAt l
+    art = lArt l
 
-drawLimbo :: Limbo -> (Int, Int) -> (Float, Float) -> IO ()
-drawLimbo l (viewW, viewH) (camX, camY) = do
-  let vw = fromIntegral viewW :: Float
-      vh = fromIntegral viewH :: Float
+    ground (t@(i, j), (x, y)) = case at t of
+      Void -> []
+      Tile g _ ->
+        let right = (x + 16, y + 8)
+            bottom = (x, y + 16)
+            left = (x - 16, y + 8)
+            down (px, py) k = (px, py + k)
+            wall = 20
+            rightWall =
+              [polygonAt view (rgb 78 74 92) [right, bottom, down bottom wall, down right wall] | at (i + 1, j) == Void]
+                ++ [lineAt view (rgb 56 52 68) (down right k) (down bottom k) | at (i + 1, j) == Void, k <- [6, 12, 18]]
+            leftWall =
+              [polygonAt view (rgb 58 54 70) [bottom, left, down left wall, down bottom wall] | at (i, j + 1) == Void]
+                ++ [lineAt view (rgb 42 40 52) (down left k) (down bottom k) | at (i, j + 1) == Void, k <- [6, 12, 18]]
+         in rightWall ++ leftWall ++ [blit view (art M.! groundArt g) (x - 16) y]
 
-  forM_ [0 .. 11 :: Int] $ \k -> do
-    let f = fromIntegral k / 11 :: Float
-        mix a b = round (a + (b - a) * f) :: Word8
-        band = viewH `div` 12 + 1
-    drawRectangle 0 (k * band) viewW band (rgb (mix 24 92) (mix 20 86) (mix 40 116))
-
-  let moon = Vector2 (vw * 0.82) (vh * 0.17)
-  drawCircleV moon 30 (Color 220 230 210 22)
-  drawCircleV moon 24 (Color 220 230 210 30)
-  drawCircleV moon 18 (rgb 224 230 212)
-  drawCircleV (Vector2 (vw * 0.82 - 6) (vh * 0.17 - 4)) 4 (rgb 200 206 190)
-  drawCircleV (Vector2 (vw * 0.82 + 5) (vh * 0.17 + 6)) 3 (rgb 204 210 194)
-
-  mapM_
-    (ghostClock (viewW, viewH))
-    [(0.12, 0.14, 20, 57), (0.38, 0.08, 13, 52), (0.6, 0.22, 17, 59), (0.27, 0.3, 9, 48), (0.93, 0.36, 11, 55)]
-
-  let cx = fromIntegral (round camX :: Int)
-      cy = fromIntegral (round camY :: Int)
-      place t = let (x, y) = tileTop t in (x - cx + vw / 2, y - cy + vh / 2)
-      placed = [(t, place t) | t <- lOrder l]
-
-      groundVisible (x, y) = x > -48 && x < vw + 48 && y > -24 && y < vh + 96
-      thingVisible (x, y) = x > -64 && x < vw + 64 && y > -40 && y < vh + 260
-      at = tileAt l
-      art = lArt l
-
-
-  forM_ [p | p@(_, xy) <- placed, groundVisible xy] $ \(t@(i, j), (x, y)) -> case at t of
-    Void -> pure ()
-    Tile g _ -> do
-      let right = (x + 16, y + 8)
-          bottom = (x, y + 16)
-          left = (x - 16, y + 8)
-          down (px, py) k = (px, py + k)
-          wall = 20
-      when (at (i + 1, j) == Void) $ do
-        quad right bottom (down bottom wall) (down right wall) (rgb 78 74 92)
-        forM_ [6, 12, 18] $ \k -> drawLineV (vec (down right k)) (vec (down bottom k)) (rgb 56 52 68)
-      when (at (i, j + 1) == Void) $ do
-        quad bottom left (down left wall) (down bottom wall) (rgb 58 54 70)
-        forM_ [6, 12, 18] $ \k -> drawLineV (vec (down left k)) (vec (down bottom k)) (rgb 42 40 52)
-      blit (art M.! groundArt g) (x - 16) y
-
-
-  forM_ [p | p@(_, xy) <- placed, thingVisible xy] $ \(t, (x, y)) -> case at t of
-    Tile _ (Just thing) | Just (name, below) <- thingArt t thing -> do
-      let tex = art M.! name
-          w = fromIntegral (texture'width tex)
-          ht = fromIntegral (texture'height tex)
-      case thing of
-        House _ -> blit tex (x - 16) (y + 16 - ht) 
-        _ -> blit tex (x - w / 2) (y + 8 + fromIntegral below - ht)
-    _ -> pure ()
-
-
-  drawRectangleGradientV 0 0 viewW viewH (Color 170 160 200 64) (Color 170 160 200 18)
-
-  beginBlendMode BlendAdditive
-  drawRectangle 0 0 viewW viewH (Color 0 0 0 255)
-  endBlendMode
+    thing (t, (x, y)) = case at t of
+      Tile _ (Just th) | Just (name, below) <- thingArt t th ->
+        let a = art M.! name
+         in case th of
+              House _ -> [blit view a (x - 16) (y + 16 - artH a)]
+              _ -> [blit view a (x - artW a / 2) (y + 8 + fromIntegral below - artH a)]
+      _ -> []

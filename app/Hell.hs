@@ -17,16 +17,14 @@ module Hell
   )
 where
 
-import Control.Monad (forM_, when)
+import Codec.Picture (PixelRGBA8 (..), imageHeight, imageWidth, pixelAt)
 import Data.Array (Array, bounds, listArray, range, (!))
 import Data.Bits (shiftR, xor)
 import Data.List (minimumBy, sortOn)
 import qualified Data.Map.Strict as M
 import Data.Ord (comparing)
-import Data.Word (Word8)
-import Raylib.Core.Shapes
-import Raylib.Core.Textures
-import Raylib.Types hiding (Ray (..))
+import Graphics.Gloss (Picture, pictures)
+import MapArt
 
 
 data Ground
@@ -65,8 +63,8 @@ legend =
     ((255, 0, 120), Tile Brimstone (Just Portal))
   ]
 
-colourToTile :: Color -> Tile
-colourToTile (Color r g b a)
+colourToTile :: PixelRGBA8 -> Tile
+colourToTile (PixelRGBA8 r g b a)
   | a < 128 = Void
   | otherwise = snd (minimumBy (comparing (distance . fst)) legend)
   where
@@ -80,7 +78,7 @@ type Grid = Array (Int, Int) Tile
 
 data Hell = Hell
   { hGrid :: Grid,
-    hArt :: M.Map String Texture,
+    hArt :: M.Map String Art,
     hOrder :: [(Int, Int)],
     hStart :: (Float, Float),
     hLand :: (Float, Float, Float, Float)
@@ -90,7 +88,7 @@ data Hell = Hell
 loadHell :: FilePath -> IO Hell
 loadHell folder = do
   grid <- loadGrid (folder ++ "/map.png")
-  textures <- mapM (\n -> loadTexture (folder ++ "/" ++ n ++ ".png")) artNames
+  art <- loadArtSet folder artNames
   let (_, (maxI, maxJ)) = bounds grid
       tiles = range (bounds grid)
       portals = [t | t <- tiles, lookupTile grid t == Tile Brimstone (Just Portal)]
@@ -99,7 +97,7 @@ loadHell folder = do
   pure
     Hell
       { hGrid = grid,
-        hArt = M.fromList (zip artNames textures),
+        hArt = art,
         hOrder = sortOn (\(i, j) -> i + j) tiles,
         hStart = tileTop (case portals of (p : _) -> p; [] -> (maxI `div` 2, maxJ `div` 2)),
         hLand = (minimum is, maximum is + 1, minimum js, maximum js + 1)
@@ -107,12 +105,10 @@ loadHell folder = do
 
 loadGrid :: FilePath -> IO Grid
 loadGrid path = do
-  image <- loadImage path
-  colours <- loadImageColors image
-  let w = image'width image
-      h = image'height image
-      rows = listArray ((0, 0), (h - 1, w - 1)) (map colourToTile colours)
-      grid = listArray ((0, 0), (w - 1, h - 1)) [rows ! (j, i) | i <- [0 .. w - 1], j <- [0 .. h - 1]]
+  image <- readRGBA8 path
+  let w = imageWidth image
+      h = imageHeight image
+      grid = listArray ((0, 0), (w - 1, h - 1)) [colourToTile (pixelAt image i j) | i <- [0 .. w - 1], j <- [0 .. h - 1]]
   pure (listArray (bounds grid) [settle grid t (grid ! t) | t <- range (bounds grid)])
 
 
@@ -185,75 +181,59 @@ thingArt t thing = case thing of
 hashT :: (Int, Int) -> Int
 hashT (x, y) = let h = (x * 73856093) `xor` (y * 19349663) `xor` 0x5bd1e995 in abs (h `xor` (h `shiftR` 13))
 
-rgb :: Word8 -> Word8 -> Word8 -> Color
-rgb r g b = Color r g b 255
 
-blit :: Texture -> Float -> Float -> IO ()
-blit tex x y = drawTexture tex (round x) (round y) (rgb 255 255 255)
-
-
-tri :: (Float, Float) -> (Float, Float) -> (Float, Float) -> Color -> IO ()
-tri a b c col
-  | cross < 0 = drawTriangle (vec a) (vec b) (vec c) col
-  | otherwise = drawTriangle (vec a) (vec c) (vec b) col
+-- Draw hell into an area of the given size in canvas pixels, with the camera point at its centre.
+-- The result is a gloss Picture centred on (0, 0).
+drawHell :: Hell -> View -> (Float, Float) -> Picture
+drawHell h view@(viewW, viewH) (camX, camY) =
+  pictures ([sky] ++ embers ++ concatMap ground onScreen ++ concatMap thing onScreen)
   where
-    cross = (fst b - fst a) * (snd c - snd a) - (snd b - snd a) * (fst c - fst a)
+    sky = skyBands view (18, 8, 10, 255) (120, 30, 20, 255)
 
-quad :: (Float, Float) -> (Float, Float) -> (Float, Float) -> (Float, Float) -> Color -> IO ()
-quad a b c d col = tri a b c col >> tri a c d col
+    embers =
+      [ rectAt view (rgb 255 140 60) (fromIntegral (floor (x * viewW / 640) :: Int)) (fromIntegral (floor (y * viewH / 360) :: Int)) 1 1
+        | (x, y) <- [(41, 30), (97, 72), (152, 18), (228, 51), (309, 36), (371, 80), (446, 24), (519, 63), (583, 41), (612, 92), (66, 118), (548, 130)]
+      ]
 
-vec :: (Float, Float) -> Vector2
-vec (x, y) = Vector2 x y
+    cx = fromIntegral (round camX :: Int)
+    cy = fromIntegral (round camY :: Int)
+    place t = let (x, y) = tileTop t in (x - cx + viewW / 2, y - cy + viewH / 2)
+    visible (x, y) = x > -48 && x < viewW + 48 && y > -24 && y < viewH + 96
+    onScreen = [(t, p) | t <- hOrder h, let p = place t, visible p]
+    at = tileAt h
+    art = hArt h
 
+    ground (t@(i, j), (x, y)) = case at t of
+      Void -> []
+      Tile g _ ->
+        let right = (x + 16, y + 8)
+            bottom = (x, y + 16)
+            left = (x - 16, y + 8)
+            down (px, py) k = (px, py + k)
+            wall = 20
+            rightWall
+              | at (i + 1, j) == Void =
+                  [ polygonAt view (rgb 70 40 36) [right, bottom, down bottom wall, down right wall],
+                    lineAt view (rgb 44 24 22) (down right 7) (down bottom 7),
+                    lineAt view (rgb 220 90 30) (down right 13) (down bottom 13),
+                    lineAt view (rgb 44 24 22) (down right 18) (down bottom 18)
+                  ]
+              | otherwise = []
+            leftWall
+              | at (i, j + 1) == Void =
+                  [ polygonAt view (rgb 50 28 26) [bottom, left, down left wall, down bottom wall],
+                    lineAt view (rgb 32 18 16) (down left 7) (down bottom 7),
+                    lineAt view (rgb 190 70 24) (down left 13) (down bottom 13),
+                    lineAt view (rgb 32 18 16) (down left 18) (down bottom 18)
+                  ]
+              | otherwise = []
+         in rightWall ++ leftWall ++ [blit view (art M.! groundArt g) (x - 16) y]
 
-drawHell :: Hell -> (Int, Int) -> (Float, Float) -> IO ()
-drawHell h (viewW, viewH) (camX, camY) = do
-
-  forM_ [0 .. 11 :: Int] $ \k -> do
-    let f = fromIntegral k / 11 :: Float
-        mix a b = round (a + (b - a) * f) :: Word8
-        band = viewH `div` 12 + 1
-    drawRectangle 0 (k * band) viewW band (rgb (mix 18 120) (mix 8 30) (mix 10 20))
-
-  forM_ [(41, 30), (97, 72), (152, 18), (228, 51), (309, 36), (371, 80), (446, 24), (519, 63), (583, 41), (612, 92), (66, 118), (548, 130)] $ \(x, y) ->
-    drawRectangle (x * viewW `div` 640) (y * viewH `div` 360) 1 1 (rgb 255 140 60)
-
-  let cx = fromIntegral (round camX :: Int)
-      cy = fromIntegral (round camY :: Int)
-      place t = let (x, y) = tileTop t in (x - cx + fromIntegral viewW / 2, y - cy + fromIntegral viewH / 2)
-      visible (x, y) = x > -48 && x < fromIntegral viewW + 48 && y > -24 && y < fromIntegral viewH + 96
-      onScreen = [(t, p) | t <- hOrder h, let p = place t, visible p]
-      at = tileAt h
-      art = hArt h
-
-
-  forM_ onScreen $ \(t@(i, j), (x, y)) -> case at t of
-    Void -> pure ()
-    Tile g _ -> do
-      let right = (x + 16, y + 8)
-          bottom = (x, y + 16)
-          left = (x - 16, y + 8)
-          down (px, py) k = (px, py + k)
-          wall = 20
-      when (at (i + 1, j) == Void) $ do
-        quad right bottom (down bottom wall) (down right wall) (rgb 70 40 36)
-        drawLineV (vec (down right 7)) (vec (down bottom 7)) (rgb 44 24 22)
-        drawLineV (vec (down right 13)) (vec (down bottom 13)) (rgb 220 90 30)
-        drawLineV (vec (down right 18)) (vec (down bottom 18)) (rgb 44 24 22)
-      when (at (i, j + 1) == Void) $ do
-        quad bottom left (down left wall) (down bottom wall) (rgb 50 28 26)
-        drawLineV (vec (down left 7)) (vec (down bottom 7)) (rgb 32 18 16)
-        drawLineV (vec (down left 13)) (vec (down bottom 13)) (rgb 190 70 24)
-        drawLineV (vec (down left 18)) (vec (down bottom 18)) (rgb 32 18 16)
-      blit (art M.! groundArt g) (x - 16) y
-
-  forM_ onScreen $ \(t, (x, y)) -> case at t of
-    Tile _ (Just thing) -> do
-      let (name, below) = thingArt t thing
-          tex = art M.! name
-          w = fromIntegral (texture'width tex)
-          ht = fromIntegral (texture'height tex)
-      case thing of
-        Building _ -> blit tex (x - 16) (y + 16 - ht)
-        _ -> blit tex (x - w / 2) (y + 8 + fromIntegral below - ht)
-    _ -> pure ()
+    thing (t, (x, y)) = case at t of
+      Tile _ (Just th) ->
+        let (name, below) = thingArt t th
+            a = art M.! name
+         in case th of
+              Building _ -> [blit view a (x - 16) (y + 16 - artH a)]
+              _ -> [blit view a (x - artW a / 2) (y + 8 + fromIntegral below - artH a)]
+      _ -> []

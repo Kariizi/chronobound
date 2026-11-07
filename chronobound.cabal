@@ -68,14 +68,18 @@ executable chronobound
         Controller
         Player
         Mob
-        Levels
         Abilities
+        Combat
+        MapArt
+        Victoria
+        Limbo
+        Hell
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base ^>=4.17.2.1, gloss, random
+    build-depends:    base ^>=4.17.2.1, gloss, random, array, containers, JuicyPixels, gloss-juicy
 
     -- Directories containing source files.
     hs-source-dirs:   app

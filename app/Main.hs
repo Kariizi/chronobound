@@ -1,7 +1,39 @@
+import Graphics.Gloss.Interface.Pure.Game
 import Model
 import View
 import Controller
 import System.Random (randomRIO)
+import qualified Victoria
+import qualified Limbo
+import qualified Hell
+
+-- Which map is showing. Temporary: press 1, 2 or 3 to switch while we integrate the maps.
+data Level = VictoriaLevel | LimboLevel | HellLevel
+
+data Maps = Maps
+    { victoriaMap :: Victoria.Victoria
+    , limboMap    :: Limbo.Limbo
+    , hellMap     :: Hell.Hell
+    }
+
+-- The map art is tiny pixel art, so it is drawn at this zoom
+mapZoom :: Float
+mapZoom = 2
+
+drawLevel :: Maps -> Level -> Picture
+drawLevel ms level =
+    let view = (windowWidth / mapZoom, windowHeight / mapZoom)
+        picture = case level of
+            VictoriaLevel -> let m = victoriaMap ms in Victoria.drawVictoria m view (Victoria.startView m)
+            LimboLevel    -> let m = limboMap ms    in Limbo.drawLimbo m view (Limbo.startView m)
+            HellLevel     -> let m = hellMap ms     in Hell.drawHell m view (Hell.startView m)
+    in scale mapZoom mapZoom picture
+
+handleLevelInput :: Event -> (Level, World) -> (Level, World)
+handleLevelInput (EventKey (Char '1') Down _ _) (_, world) = (VictoriaLevel, world)
+handleLevelInput (EventKey (Char '2') Down _ _) (_, world) = (LimboLevel, world)
+handleLevelInput (EventKey (Char '3') Down _ _) (_, world) = (HellLevel, world)
+handleLevelInput event (level, world) = (level, handleInput event world)
 
 zoneBounds :: Zone -> (Float, Float, Float, Float)
 zoneBounds TopLeft     = (-maxX, -lineMargin,  lineMargin,  maxY)
@@ -44,11 +76,16 @@ main = do
 
     let startingWorld = initialWorld { mobs = startingMobs }
 
+    maps <- Maps
+        <$> Victoria.loadVictoria "app/assets/victoria"
+        <*> Limbo.loadLimbo "app/assets/limbo"
+        <*> Hell.loadHell "app/assets/hell"
+
     play
         (InWindow "Chronobound" (round windowWidth, round windowHeight) (100, 100))
-        white
+        black
         60
-        startingWorld
-        drawWorld
-        handleInput
-        updateWorld
+        (VictoriaLevel, startingWorld)
+        (\(level, world) -> pictures [drawLevel maps level, drawWorld world])
+        handleLevelInput
+        (\dt (level, world) -> (level, updateWorld dt world))
