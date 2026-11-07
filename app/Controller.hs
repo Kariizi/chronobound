@@ -5,6 +5,7 @@ import Model
 import Player
 import Combat
 import Mob
+import Model (DamageNumber(DamageNumber), World (damageNumbers))
 
 -- Handles keyboard events
 handleInput :: Event -> World -> World
@@ -98,6 +99,31 @@ normaliseVelocity (vx, vy) =
         then (0, 0)
         else (vx / magnitude, vy / magnitude)
 
+updateDamageNumbers :: Float -> [DamageNumber] -> [DamageNumber]
+updateDamageNumbers dt numbers =
+    let
+        updateOneNumber number =
+            let
+                (x, y) = damagePosition number
+                floatSpeed = 60
+
+                newY = y + (floatSpeed * dt)
+                newLifetime = max 0 (damageLifetime number - dt)
+
+            in number
+                { damagePosition = (x, newY)
+                , damageLifetime = newLifetime
+                }
+
+        updatedNumbers = map updateOneNumber numbers
+        activeNumbers = filter isActive updatedNumbers
+
+        isActive number
+            | damageLifetime number > 0 = True
+            | otherwise = False
+
+    in activeNumbers
+
 
 -- Update the game world every frame
 updateWorld :: Float -> World -> World
@@ -132,8 +158,14 @@ updateWorld dt world =
         attackUpdatedPlayer = updateAttack dt movedPlayer
         updatedPlayer = updateDash dt attackUpdatedPlayer
 
-        -- Store updated player in world
+        -- Store updated player in world (update the player in world)
         worldWithPlayer = world { player = updatedPlayer }
 
+        updatedNumbers = updateDamageNumbers dt (damageNumbers world)
+
+        -- Updates the numbers in the world 
+        worldWithNumbers = worldWithPlayer
+            { damageNumbers = updatedNumbers }
+
     -- Update mobs using the new player position
-    in moveMobs dt worldWithPlayer
+    in moveMobs dt worldWithNumbers

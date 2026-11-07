@@ -10,6 +10,7 @@ data World = World
     , mobs :: [Mob]
     , heldKeys :: [Char]
     , projectiles :: [Projectile]
+    , damageNumbers :: [DamageNumber]
     } deriving (Show, Eq)
 
 -- Storing information about the player
@@ -71,6 +72,12 @@ data Projectile = Projectile
     , projectileRange :: Float
     } deriving (Show, Eq)
 
+data DamageNumber = DamageNumber
+    { damagePosition :: (Float, Float)
+    , damageAmount :: Int 
+    , damageLifetime :: Float 
+    } deriving (Show, Eq)
+
 -- Declaring Upgrade Types:
 data Upgrade 
     = HealthUpgrade Int 
@@ -129,5 +136,6 @@ initialWorld =
         , heldKeys = []
         , mobs = [initialMob]
         , projectiles = []
+        , damageNumbers = []
         }
 

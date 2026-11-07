@@ -53,6 +53,14 @@ isMobInRange p mob =
     -- Checks if the distance from mob and centre is less than meaning its inside attack 
     in distanceSquared <= hitRadius * hitRadius 
 
+createDamageNumber :: Int -> Mob -> DamageNumber 
+createDamageNumber damage mob = 
+    DamageNumber 
+        { damagePosition = mobPosition mob 
+        , damageAmount = damage 
+        , damageLifetime = 0.5
+        }
+
 -- Mob Take Damage 
 performMeleeAttackMob :: World -> World 
 performMeleeAttackMob world =
@@ -69,7 +77,16 @@ performMeleeAttackMob world =
         -- Apply the attackMob function to every mob in currentMobs
         -- Create updated list with all new mobs
         updatedMobs = map attackMob currentMobs 
+
+        hitMobs = filter (isMobInRange p) currentMobs
+
+        -- Creates damage number for each mob hit
+        newDamageNumbers = map (createDamageNumber damage) hitMobs
+        -- Combines eisting and new damage numbers
+        allDamageNumbers = damageNumbers world ++ newDamageNumbers
+
         -- Takes mob and checks if it returns true for conditon 
         aliveMobs = filter (\mob -> mobHealth mob >0) updatedMobs
+        
 
-    in world { mobs = aliveMobs }
+    in world { mobs = aliveMobs , damageNumbers = allDamageNumbers }

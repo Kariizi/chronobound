@@ -45,9 +45,10 @@ drawWorld world =
 
         -- Draw all mobs
         mobPictures = map drawMob (mobs world)
+        damagePictures = map drawDamageNumber (damageNumbers world)
 
     -- Combine player, attack and mobs
-    in pictures (mobPictures ++ [playerPicture, attackPicture])
+    in pictures (mobPictures ++ [playerPicture, attackPicture] ++ damagePictures)
 
 
 -- Draw individual mob
@@ -58,3 +59,19 @@ drawMob mob =
 
     in translate x y
         (color red (circleSolid (mobRadius mob)))
+
+-- Draw a floating damage number
+drawDamageNumber :: DamageNumber -> Picture
+drawDamageNumber number =
+    let
+        -- Retrieve the damage number's position
+        (x, y) = damagePosition number
+
+        -- Convert damage amount from Int to String
+        damageText = show (damageAmount number)
+
+        textScale = 0.15
+
+    in translate x y
+        (scale textScale textScale
+            (color yellow (Text ("-" ++ damageText))))
