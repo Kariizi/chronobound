@@ -1,67 +1,78 @@
+
 -- Used to store any states or models used throughout the game
 -- Game World
--- Players or Mobs, etc 
+-- Players or Mobs, etc
 
 module Model where
 
 -- Storing the game world:
-data World = World 
-    { player :: Player 
+data World = World
+    { player :: Player
     , mobs :: [Mob]
     , heldKeys :: [Char]
     , projectiles :: [Projectile]
     , damageNumbers :: [DamageNumber]
     , playerHistory :: [PlayerSnapshot]
+    , worldTime :: Float
     } deriving (Show, Eq)
 
 -- Storing information about the player
 
 -- Declares type Player, where Player is the constructor
-data Player = Player 
+data Player = Player
     -- All the fields
-    { position :: (Float, Float) 
+    { position :: (Float, Float)
     , velocity :: (Float, Float)
     , facingDirection :: (Float, Float)
-    , health :: Int 
+    , health :: Int
     , maxHealth :: Int
-    , moveSpeed :: Float 
+    , moveSpeed :: Float
     -- Attack: how long attack remains, cooldown for attack
     , attackDamage :: Int
-    , attackTimer :: Float 
+    , attackTimer :: Float
     , cooldownRemaining :: Float
     -- Dashing: how long dash remains, direction and cooldown
     , dashTimer :: Float
-    , dashCooldownRemaining :: Float 
+    , dashCooldownRemaining :: Float
     , dashDirection :: (Float, Float)
-    -- Rewind: 
+    -- Rewind:
     , rewindCooldownRemaining :: Float
     , equippedWeapon :: Weapon
+    -- Time Health:
+    , timeDrainAccumulator :: Float
     } deriving (Show, Eq)
 
 data PlayerSnapshot = PlayerSnapshot
     -- Players Position
     { snapshotPosition :: (Float, Float)
     -- Players Health then
-    , snapshotHealth :: Int 
+    , snapshotHealth :: Int
     -- When snapshot was recorded
     , snapshotAge :: Float
     } deriving (Show, Eq)
 
 -- Storing information about the mobs
 data Mob = Mob
-    {mobPosition :: (Float, Float)
+    { mobPosition :: (Float, Float)
     , mobHealth :: Int
     , mobMaxHealth :: Int
-    ,mobSpeed :: Float
+    , mobSpeed :: Float
     , mobDamage :: Int
     , mobRadius :: Float
     , mobAttackRange :: Float
     , mobZone :: Zone
     , mobSprite :: String
-    , mobAttackCooldown :: Float   -- NEW: time left until it can hit again
-    , mobAttackInterval :: Float   -- NEW: seconds between hit
-    }
-    deriving (Show, Eq)
+
+    -- Random animation timing for each mob
+    , mobAnimOffset :: Float
+
+    -- Time until mob can attack again
+    , mobAttackCooldown :: Float
+
+    -- Seconds between mob attacks
+    , mobAttackInterval :: Float
+    } deriving (Show, Eq)
+
 initialMob :: Mob
 initialMob =
     Mob
@@ -74,11 +85,18 @@ initialMob =
         , mobAttackRange = 5.0
         , mobZone = TopRight
         , mobSprite = "monster_1"
-        , mobAttackCooldown = 0         
-        , mobAttackInterval = 1.0 
+
+        -- Animation starts with no offset
+        , mobAnimOffset = 0
+
+        -- Mob can attack immediately
+        , mobAttackCooldown = 0
+
+        -- One second between attacks
+        , mobAttackInterval = 1.0
         }
 
- -- Storing information about weapons
+-- Storing information about weapons
 data Weapon = Weapon
     { weaponName :: String
     , weaponDamage :: Int
@@ -96,18 +114,18 @@ data Projectile = Projectile
 -- Floating damage numbers
 data DamageNumber = DamageNumber
     { damagePosition :: (Float, Float)
-    , damageAmount :: Int 
-    , damageLifetime :: Float 
-    , damageHitsPlayer :: Bool 
+    , damageAmount :: Int
+    , damageLifetime :: Float
+    , damageHitsPlayer :: Bool
     } deriving (Show, Eq)
 
 -- Window size: change these and everything else follows
 windowWidth, windowHeight :: Float
-windowWidth  = 800
+windowWidth = 800
 windowHeight = 600
 
 worldHalfWidth, worldHalfHeight :: Float
-worldHalfWidth  = windowWidth / 2
+worldHalfWidth = windowWidth / 2
 worldHalfHeight = windowHeight / 2
 
 -- How far mobs spawn from the window edge and from the dividing lines
@@ -118,34 +136,34 @@ lineMargin = 30
 playerRadius :: Float
 playerRadius = 20
 
-data Zone = TopLeft | TopRight | BottomLeft | BottomRight 
-   deriving (Show, Eq, Enum, Bounded)
+data Zone = TopLeft | TopRight | BottomLeft | BottomRight
+    deriving (Show, Eq, Enum, Bounded)
 
 zoneOf :: (Float, Float) -> Zone
 zoneOf (x, y)
-    | x <  0 && y >= 0 = TopLeft
+    | x < 0 && y >= 0 = TopLeft
     | x >= 0 && y >= 0 = TopRight
-    | x <  0 && y <  0 = BottomLeft
-    | otherwise        = BottomRight
+    | x < 0 && y < 0 = BottomLeft
+    | otherwise = BottomRight
 
 -- Declaring Upgrade Types:
-data Upgrade 
-    = HealthUpgrade Int 
-    | SpeedUpgrade  Float
+data Upgrade
+    = HealthUpgrade Int
+    | SpeedUpgrade Float
     | DamageUpgrade Int
     deriving (Show, Eq)
 
 -- Defining Initial Attributes:
 
 -- Initial players stats
-initialPlayer :: Player 
-initialPlayer = 
+initialPlayer :: Player
+initialPlayer =
     Player
-        { position = (-200, 150)
+        { position = (0, 0)
         , velocity = (0,0)
         , facingDirection = (1,0)
         , health = 100
-        , maxHealth = 300 
+        , maxHealth = 300
         , moveSpeed = 200.0
         , attackDamage = 3
         , attackTimer = 0
@@ -154,37 +172,37 @@ initialPlayer =
         , dashCooldownRemaining = 0
         , dashDirection = (1, 0)
         , rewindCooldownRemaining = 0
+        , timeDrainAccumulator = 0
         , equippedWeapon = Weapon
-    { weaponName = "Flintlock Pistol"
-    , weaponDamage = 5
-    , projectileSpeed = 6.0
-    , attackRange = 300.0
-    }
+            { weaponName = "Flintlock Pistol"
+            , weaponDamage = 5
+            , projectileSpeed = 6.0
+            , attackRange = 300.0
+            }
         }
 
 -- Initialising Variables: Functions can retrieve
-dashSpeed :: Float 
-dashSpeed = 800 
+dashSpeed :: Float
+dashSpeed = 800
 
-dashDuration :: Float 
-dashDuration = 0.12 
+dashDuration :: Float
+dashDuration = 0.12
 
-dashCooldown :: Float 
+dashCooldown :: Float
 dashCooldown = 0.8
 
-meleeAttackDistance :: Float 
-meleeAttackDistance = 40 
+meleeAttackDistance :: Float
+meleeAttackDistance = 40
 
-meleeHitRadius :: Float 
-meleeHitRadius = 35 
+meleeHitRadius :: Float
+meleeHitRadius = 35
 
-rewindCooldown :: Float 
+rewindCooldown :: Float
 rewindCooldown = 5.0
 
-
 -- Inital Game World
-initialWorld :: World 
-initialWorld = 
+initialWorld :: World
+initialWorld =
     World
         { player = initialPlayer
         , heldKeys = []
@@ -192,5 +210,5 @@ initialWorld =
         , projectiles = []
         , damageNumbers = []
         , playerHistory = []
+        , worldTime = 0
         }
-

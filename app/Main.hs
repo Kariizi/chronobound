@@ -21,13 +21,34 @@ data Maps = Maps
 mapZoom :: Float
 mapZoom = 2
 
-drawLevel :: Maps -> Level -> Picture
-drawLevel ms level =
-    let view = (windowWidth / mapZoom, windowHeight / mapZoom)
+-- Draw the current level using the player's position as the camera
+drawLevel :: Maps -> Level -> (Float, Float) -> Picture
+drawLevel ms level (px, py) =
+    let
+        view = (windowWidth / mapZoom, windowHeight / mapZoom)
+
+        -- Calculate camera position relative to the level's starting point
+        camFrom (sx, sy) =
+            ( sx + px / mapZoom
+            , sy - py / mapZoom
+            )
+
         picture = case level of
-            VictoriaLevel -> let m = victoriaMap ms in Victoria.drawVictoria m view (Victoria.startView m)
-            LimboLevel    -> let m = limboMap ms    in Limbo.drawLimbo m view (Limbo.startView m)
-            HellLevel     -> let m = hellMap ms     in Hell.drawHell m view (Hell.startView m)
+            VictoriaLevel ->
+                let
+                    m = victoriaMap ms
+                in Victoria.drawVictoria m view (camFrom (Victoria.startView m))
+
+            LimboLevel ->
+                let
+                    m = limboMap ms
+                in Limbo.drawLimbo m view (camFrom (Limbo.startView m))
+
+            HellLevel ->
+                let
+                    m = hellMap ms
+                in Hell.drawHell m view (camFrom (Hell.startView m))
+
     in scale mapZoom mapZoom picture
 
 handleLevelInput :: Event -> (Level, World) -> (Level, World)
@@ -65,11 +86,18 @@ tooClose :: (Float, Float) -> (Float, Float) -> Bool
 tooClose (x1, y1) (x2, y2) =
     (x2 - x1)^2 + (y2 - y1)^2 < 80^2
 
+-- Enemy animation names used when spawning mobs
 enemySprites :: [String]
 enemySprites =
-    [ "monster_1", "monster_2", "monster_3"
-    , "vampire_1", "vampire_2", "vampire_3"
-    , "werewolf_1", "werewolf_2", "werewolf_3"
+    [ "bat_ghoul_breathe"
+    , "cultist_breathe"
+    , "ghost_breathe"
+    , "hooded_brute_breathe"
+    , "shadow_beast_breathe"
+    , "skeleton_breathe"
+    , "vampire_breathe"
+    , "wolf_black_breathe"
+    , "wolf_brown_breathe"
     ]
 
 -- Spawns n mobs in a zone, each with a random enemy sprite
@@ -79,11 +107,15 @@ spawnZoneMobs n zone = do
     mapM makeMob positions
   where
     makeMob pos = do
+    -- Randomly selects an enemy sprite
         k <- randomRIO (0, length enemySprites - 1)
+        -- Generates a random animation offset between 0 and 1 second
+        offset <- randomRIO (0.0, 1.0)
         return initialMob
             { mobPosition = pos
-            , mobZone     = zone
-            , mobSprite   = enemySprites !! k
+            , mobZone = zone
+            , mobSprite = enemySprites !! k
+            , mobAnimOffset = offset
             }
 
 main :: IO ()
@@ -97,11 +129,20 @@ main = do
         <*> Limbo.loadLimbo "app/assets/limbo"
         <*> Hell.loadHell "app/assets/hell"
 
-    sprites <- loadArtSet "app/assets/sprites"
-        ["monster_1", "monster_2", "monster_3",
-         "vampire_1", "vampire_2", "vampire_3",
-         "werewolf_1", "werewolf_2", "werewolf_3",
-         "normal", "scary"
+    -- Loads animated GIF sprites instead of static PNGs
+    sprites <- loadAnimationSet 8 "app/assets/spriteanimated"
+        [ "player_breathe"
+        , "player_corrupted_breathe"
+        , "boss_breathe"
+        , "bat_ghoul_breathe"
+        , "cultist_breathe"
+        , "ghost_breathe"
+        , "hooded_brute_breathe"
+        , "shadow_beast_breathe"
+        , "skeleton_breathe"
+        , "vampire_breathe"
+        , "wolf_black_breathe"
+        , "wolf_brown_breathe"
         ]
 
     play
@@ -109,6 +150,20 @@ main = do
         black
         60
         (VictoriaLevel, startingWorld)
-        (\(level, world) -> pictures [drawLevel maps level, drawWorld sprites world])
+        (\(level, world) ->
+        let
+            -- Retrieves player's position
+            (px, py) = position (player world)
+
+        in pictures
+            [ -- Draw map relative to player position
+            drawLevel maps level (px, py)
+
+            -- Shift game layer in opposite direction
+            , translate (-px) (-py) (drawWorld sprites world)
+            
+            -- Draw HUD without camera translation
+            , drawHUD world
+            ])
         handleLevelInput
         (\dt (level, world) -> (level, updateWorld dt world))

@@ -112,6 +112,41 @@ updateRewind dt p =
     -- Updates player with new rewind cooldown
     in p { rewindCooldownRemaining = newCooldown }
 
+-- Rewind Functionality
+rewindPlayer :: World -> World
+rewindPlayer world
+    -- Check if rewind is still on cooldown
+    | rewindCooldownRemaining (player world) > 0 = world
+    | otherwise =
+        let
+            history = playerHistory world
+            p = player world
+
+        in case history of
+            -- For empty history return current world
+            [] -> world
+
+            -- For history with snapshots
+            _ ->
+                let
+                    -- Gets the final element of list
+                    oldestSnapshot = last history
+
+                    rewoundPlayer = p
+                        -- Retrieves the snapshot position of oldest snapshot + health
+                        { position = snapshotPosition oldestSnapshot
+                        , health = snapshotHealth oldestSnapshot
+
+                        -- Start the rewind cooldown
+                        , rewindCooldownRemaining = rewindCooldown
+                        }
+
+                -- Replaces current player with new player
+                -- Clear old snapshots
+                in world
+                    { player = rewoundPlayer
+                    , playerHistory = []
+                    }
 
 -- Recording players snapshot
 recordPlayerSnapshot:: Float -> World -> World 
@@ -148,38 +183,20 @@ recordPlayerSnapshot dt world =
 
     in world { playerHistory = updatedHistory }
 
--- Rewind Functionality
-rewindPlayer :: World -> World
-rewindPlayer world
-    -- Check if rewind is still on cooldown
-    | rewindCooldownRemaining (player world) > 0 = world
-    | otherwise =
-        let
-            history = playerHistory world
-            p = player world
+-- Health (time) functionality: Losing hp 
+drainTime :: Float -> Player -> Player 
+drainTime dt p = 
+    let 
+        -- Add new time ontop of the accumulated time
+        accumulatedTime = timeDrainAccumulator p + dt 
 
-        in case history of
-            -- For empty history return current world
-            [] -> world
+        -- Gets number of whole seconds
+        secondsPassed = floor accumulatedTime 
 
-            -- For history with snapshots
-            _ ->
-                let
-                    -- Gets the final element of list
-                    oldestSnapshot = last history
+        -- Keep only the fractional time remaining (for next update)
+        remainingTime = accumulatedTime - fromIntegral secondsPassed
 
-                    rewoundPlayer = p
-                        -- Retrieves the snapshot position of oldest snapshot + health
-                        { position = snapshotPosition oldestSnapshot
-                        , health = snapshotHealth oldestSnapshot
-
-                        -- Start the rewind cooldown
-                        , rewindCooldownRemaining = rewindCooldown
-                        }
-
-                -- Replaces current player with new player
-                -- Clear old snapshots
-                in world
-                    { player = rewoundPlayer
-                    , playerHistory = []
-                    }
+        -- Decrease HP by number of whole seconds 
+        newHealth = max 0 (health p - secondsPassed)
+        
+    in p { health = newHealth, timeDrainAccumulator = remainingTime }
