@@ -53,7 +53,9 @@ data Mob = Mob
     ,mobSpeed :: Float
     , mobDamage :: Int
     , mobRadius :: Float
-    , mobAttackRange :: Float}
+    , mobAttackRange :: Float
+    , mobZone :: Zone
+    }
     deriving (Show, Eq)
 initialMob :: Mob
 initialMob =
@@ -65,6 +67,7 @@ initialMob =
         , mobDamage = 5
         , mobRadius = 15.0
         , mobAttackRange = 30.0
+        , mobZone = TopRight
         }
 
  -- Storing information about weapons
@@ -82,11 +85,36 @@ data Projectile = Projectile
     , projectileRange :: Float
     } deriving (Show, Eq)
 
+-- Floating damage numbers
 data DamageNumber = DamageNumber
     { damagePosition :: (Float, Float)
     , damageAmount :: Int 
     , damageLifetime :: Float 
     } deriving (Show, Eq)
+
+-- Window size: change these and everything else follows
+windowWidth, windowHeight :: Float
+windowWidth  = 800
+windowHeight = 600
+
+worldHalfWidth, worldHalfHeight :: Float
+worldHalfWidth  = windowWidth / 2
+worldHalfHeight = windowHeight / 2
+
+-- How far mobs spawn from the window edge and from the dividing lines
+edgeMargin, lineMargin :: Float
+edgeMargin = 30
+lineMargin = 30
+
+data Zone = TopLeft | TopRight | BottomLeft | BottomRight 
+   deriving (Show, Eq, Enum, Bounded)
+
+zoneOf :: (Float, Float) -> Zone
+zoneOf (x, y)
+    | x <  0 && y >= 0 = TopLeft
+    | x >= 0 && y >= 0 = TopRight
+    | x <  0 && y <  0 = BottomLeft
+    | otherwise        = BottomRight
 
 -- Declaring Upgrade Types:
 data Upgrade 
@@ -101,7 +129,7 @@ data Upgrade
 initialPlayer :: Player 
 initialPlayer = 
     Player
-        { position = (0, 0)
+        { position = (-200, 150)
         , velocity = (0,0)
         , facingDirection = (1,0)
         , health = 100

@@ -4,7 +4,6 @@ import Graphics.Gloss
 import Model
 import Combat (isAttacking)
 import Player (isDashing)
-import Model (meleeAttackDistance)
 
 -- Drawing the world
 drawWorld :: World -> Picture
@@ -45,10 +44,18 @@ drawWorld world =
 
         -- Draw all mobs
         mobPictures = map drawMob (mobs world)
+
+        -- Draw floating damage numbers
         damagePictures = map drawDamageNumber (damageNumbers world)
 
-    -- Combine player, attack and mobs
-    in pictures (mobPictures ++ [playerPicture, attackPicture] ++ damagePictures)
+        -- Zone divider lines
+        dividers = color (greyN 0.7) $ pictures
+            [ line [(-worldHalfWidth, 0), (worldHalfWidth, 0)]
+            , line [(0, -worldHalfHeight), (0, worldHalfHeight)]
+            ]
+
+    -- Dividers at the back, damage numbers on top
+    in pictures ([dividers] ++ mobPictures ++ [playerPicture, attackPicture] ++ damagePictures)
 
 
 -- Draw individual mob
@@ -56,9 +63,13 @@ drawMob :: Mob -> Picture
 drawMob mob =
     let
         (x, y) = mobPosition mob
+        zoneColour = case mobZone mob of
+            TopLeft     -> red
+            TopRight    -> orange
+            BottomLeft  -> magenta
+            BottomRight -> blue
 
-    in translate x y
-        (color red (circleSolid (mobRadius mob)))
+    in translate x y (color zoneColour (circleSolid (mobRadius mob)))
 
 -- Draw a floating damage number
 drawDamageNumber :: DamageNumber -> Picture

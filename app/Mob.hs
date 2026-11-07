@@ -36,11 +36,20 @@ moveMobs :: Float -> World -> World
 moveMobs dt world =
     let
         p = player world
+        playerZone = zoneOf (position p)
+
+        -- Only chase if the player is in this mob's zone
+        updateMob mob
+            | mobZone mob == playerZone = moveMob dt p mob
+            | otherwise                 = mob
+
         oldMobs = mobs world
-        newMobs = map (moveMob dt p) oldMobs
+        newMobs = map updateMob oldMobs
         separatedMobs = resolveAllCollisions oldMobs newMobs
     in
         world { mobs = separatedMobs }
+
+
         
 -- Check collisions for all monsters
 resolveAllCollisions :: [Mob] -> [Mob] -> [Mob]
