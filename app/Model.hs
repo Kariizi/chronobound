@@ -98,10 +98,10 @@ initialPlayer =
 
 -- Initialising Variables: Functions can retrieve
 dashSpeed :: Float 
-dashSpeed = 200 
+dashSpeed = 800 
 
 dashDuration :: Float 
-dashDuration = 0.15 
+dashDuration = 0.12 
 
 dashCooldown :: Float 
 dashCooldown = 0.8

@@ -3,6 +3,7 @@ module View where
 import Graphics.Gloss
 import Model
 import Combat (isAttacking)
+import Player
 
 -- Drawing the world
 
@@ -18,10 +19,16 @@ drawWorld world =
         -- Retrieve the player's facing direction
         (fx, fy) = facingDirection p
 
+        -- Change colour based on whether the player is dashing
+        playerColour =
+            if isDashing p
+                then blue
+                else green
+
         -- Draw player as circle 
         -- view: draw the circle at the model's position
-        playerPicture = translate x y (color green (circleSolid 20))
-
+        playerPicture = translate x y (color playerColour (circleSolid 20))
+        
          -- How far in front of the player the attack appears
         attackDistance = 40
 

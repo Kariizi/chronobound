@@ -4,7 +4,7 @@ import Graphics.Gloss.Interface.Pure.Game
 import Model
 import Player
 import Combat
-import Player (updateDash)
+
 
 -- Handles keyboard events 
 
@@ -47,7 +47,7 @@ handleInput (EventKey (SpecialKey KeySpace) Down _ _) world =
     in world { player = attackingPlayer }
 
 -- For Dashing
-handleInput (EventKey (SpecialKey KeyShiftL) Down _ _) world = 
+handleInput (EventKey (Char 'f') Down _ _) world = 
     let 
         p = player world 
         keys = heldKeys world
@@ -103,11 +103,12 @@ updateWorld dt world =
         -- Normalise the direction
         normalisedDirection = normaliseVelocity direction
 
-        newFacing = 
+        -- Gets the direction character faces
+        newFacing
+            | isDashing p = dashDirection p
             -- Attack direction will be the direction of movement for now
-            if normalisedDirection == (0,0)
-                then facingDirection p
-                else normalisedDirection 
+            | normalisedDirection == (0, 0) = facingDirection p
+            | otherwise = normalisedDirection
 
         -- Get updated player with new velocity
         movingPlayer = p 
