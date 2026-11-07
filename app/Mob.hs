@@ -13,15 +13,16 @@ moveMob dt p mob =
         dy = py - my
 
         -- Calculate distance between monster and player
-        distance = sqrt (dx^2 + dy^2)
+        distance = sqrt (dx*dx + dy*dy)
+        stopDistance = playerRadius + mobRadius mob
 
  in
-        if distance == 0
+        if distance <= stopDistance
         then mob
         else 
             let
                 -- Calculate how far the monster should move
-                travelDistance = min distance (mobSpeed mob * dt)
+                travelDistance = min (distance - stopDistance) (mobSpeed mob * dt)
 
                 -- Calculate new position
                 newX = mx + (dx / distance) * travelDistance
