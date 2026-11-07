@@ -16,7 +16,7 @@ drawWorld world =
 
         -- Draw player as circle 
         -- view: draw the circle at the model's position
-        playerPicture = translate x y (color green (circleSolid 20))
+        playerPicture = translate x y (color green (circleSolid playerRadius))
         mobPictures = map drawMob (mobs world)
         dividers = color (greyN 0.7) $ pictures
             [ line [(-worldHalfWidth, 0), (worldHalfWidth, 0)]

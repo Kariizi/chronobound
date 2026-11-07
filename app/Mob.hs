@@ -14,14 +14,15 @@ moveMob dt p mob =
 
         -- Calculate distance between monster and player
         distance = sqrt (dx^2 + dy^2)
+        stopDistance = playerRadius + mobRadius mob
 
  in
-        if distance == 0
+        if distance <= stopDistance
         then mob
         else 
             let
                 -- Calculate how far the monster should move
-                travelDistance = min distance (mobSpeed mob * dt)
+                travelDistance = min (distance - stopDistance) (mobSpeed mob * dt)
 
                 -- Calculate new position
                 newX = mx + (dx / distance) * travelDistance
