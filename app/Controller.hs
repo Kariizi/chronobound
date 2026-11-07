@@ -172,7 +172,7 @@ updateWorld dt world =
         worldWithNumbers = worldWithPlayer
             { damageNumbers = updatedNumbers }
 
-        worldWithMobs = moveMobs dt worldWithNumbers
+        worldWithMobs = mobAttacks dt (moveMobs dt worldWithNumbers)
 
     -- Update mobs using the new player position
     in recordPlayerSnapshot dt worldWithMobs

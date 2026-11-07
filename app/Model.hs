@@ -58,6 +58,8 @@ data Mob = Mob
     , mobAttackRange :: Float
     , mobZone :: Zone
     , mobSprite :: String
+    , mobAttackCooldown :: Float   -- NEW: time left until it can hit again
+    , mobAttackInterval :: Float   -- NEW: seconds between hit
     }
     deriving (Show, Eq)
 initialMob :: Mob
@@ -69,9 +71,11 @@ initialMob =
         , mobSpeed = 80.0
         , mobDamage = 5
         , mobRadius = 15.0
-        , mobAttackRange = 30.0
+        , mobAttackRange = 5.0
         , mobZone = TopRight
         , mobSprite = "monster_1"
+        , mobAttackCooldown = 0         
+        , mobAttackInterval = 1.0 
         }
 
  -- Storing information about weapons
@@ -94,6 +98,7 @@ data DamageNumber = DamageNumber
     { damagePosition :: (Float, Float)
     , damageAmount :: Int 
     , damageLifetime :: Float 
+    , damageHitsPlayer :: Bool 
     } deriving (Show, Eq)
 
 -- Window size: change these and everything else follows
