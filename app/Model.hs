@@ -28,7 +28,9 @@ data Player = Player
     , attackTimer :: Float 
     , cooldownRemaining :: Float
     -- Dashing: how long dash remains, direction and cooldown
-    , dashTimer :: Float 
+    , dashTimer :: Float
+    , dashCooldownRemaining :: Float 
+    , dashDirection :: (Float, Float)
     , equippedWeapon :: Weapon
     } deriving (Show, Eq)
 
@@ -83,6 +85,9 @@ initialPlayer =
         , attackDamage = 3
         , attackTimer = 0
         , cooldownRemaining = 0
+        , dashTimer = 0
+        , dashCooldownRemaining = 0
+        , dashDirection = (1, 0)
         , equippedWeapon = Weapon
     { weaponName = "Flintlock Pistol"
     , weaponDamage = 5
@@ -90,6 +95,16 @@ initialPlayer =
     , attackRange = 300.0
     }
         }
+
+-- Initialising Variables: Functions can retrieve
+dashSpeed :: Float 
+dashSpeed = 200 
+
+dashDuration :: Float 
+dashDuration = 0.15 
+
+dashCooldown :: Float 
+dashCooldown = 0.8
         
 
 -- Inital Game World

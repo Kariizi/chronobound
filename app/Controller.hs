@@ -4,6 +4,7 @@ import Graphics.Gloss.Interface.Pure.Game
 import Model
 import Player
 import Combat
+import Player (updateDash)
 
 -- Handles keyboard events 
 
@@ -37,12 +38,30 @@ handleInput (EventKey (Char key) Up _ _) world
 
         in world { heldKeys = newKeys }
 
+-- For attacking
 handleInput (EventKey (SpecialKey KeySpace) Down _ _) world = 
     let 
         p = player world 
         attackingPlayer = startAttack p 
 
     in world { player = attackingPlayer }
+
+-- For Dashing
+handleInput (EventKey (SpecialKey KeyShiftL) Down _ _) world = 
+    let 
+        p = player world 
+        keys = heldKeys world
+        -- Gets the direction of the player 
+        direction = normaliseVelocity (calculateVelocity keys)
+
+        chosenDirection = 
+            if direction == (0,0)
+                then facingDirection p
+                else direction
+            
+        dashingPlayer = startDash chosenDirection p 
+
+    in world { player = dashingPlayer }
 
 handleInput _ model = model 
 
@@ -63,6 +82,15 @@ calculateVelocity keys =
             | otherwise = 0
 
     in (vx,vy)
+
+-- Normalising Movement
+normaliseVelocity :: (Float, Float) -> (Float, Float)
+normaliseVelocity (vx, vy) = 
+    let 
+        magnitude = (sqrt(vx^2 + vy^2))
+    in if magnitude == 0 
+        then (0,0)
+        else (vx / magnitude, vy / magnitude)
 
 updateWorld :: Float -> World -> World 
 updateWorld dt world = 
@@ -88,18 +116,15 @@ updateWorld dt world =
             }
 
         -- Move the updated player 
-        movedPlayer = movePlayer dt movingPlayer
+        movedPlayer = 
+            if isDashing movingPlayer
+                then dashMovement dt movingPlayer
+                else movePlayer dt movingPlayer
 
         -- Update the players timers
-        updatedPlayer = updateAttack dt movedPlayer
+        attackUpdatedPlayer = updateAttack dt movedPlayer
+        updatedPlayer = updateDash dt attackUpdatedPlayer
 
     in world { player = updatedPlayer }
 
--- Normalising Movement
-normaliseVelocity :: (Float, Float) -> (Float, Float)
-normaliseVelocity (vx, vy) = 
-    let 
-        magnitude = (sqrt(vx^2 + vy^2))
-    in if magnitude == 0 
-        then (0,0)
-        else (vx / magnitude, vy / magnitude)
+
