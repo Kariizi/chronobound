@@ -161,7 +161,8 @@ updateWorld dt world =
         -- Update attack and dash timers
         attackUpdatedPlayer = updateAttack dt movedPlayer
         dashUpdatedPlayer = updateDash dt attackUpdatedPlayer
-        updatedPlayer = updateRewind dt dashUpdatedPlayer
+        rewindUpdatedPlayer = updateRewind dt dashUpdatedPlayer
+        updatedPlayer = drainTime dt rewindUpdatedPlayer
 
         -- Store updated player in world (update the player in world)
         worldWithPlayer = world { player = updatedPlayer }

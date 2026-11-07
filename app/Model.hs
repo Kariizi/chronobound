@@ -37,6 +37,8 @@ data Player = Player
     -- Rewind: 
     , rewindCooldownRemaining :: Float
     , equippedWeapon :: Weapon
+    -- Time Health: 
+    , timeDrainAccumulator :: Float 
     } deriving (Show, Eq)
 
 data PlayerSnapshot = PlayerSnapshot
@@ -149,6 +151,7 @@ initialPlayer =
         , dashCooldownRemaining = 0
         , dashDirection = (1, 0)
         , rewindCooldownRemaining = 0
+        , timeDrainAccumulator = 0
         , equippedWeapon = Weapon
     { weaponName = "Flintlock Pistol"
     , weaponDamage = 5

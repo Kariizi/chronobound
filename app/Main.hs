@@ -99,7 +99,7 @@ enemySprites =
     , "wolf_black_breathe"
     , "wolf_brown_breathe"
     ]
-    
+
 -- Spawns n mobs in a zone, each with a random enemy sprite
 spawnZoneMobs :: Int -> Zone -> IO [Mob]
 spawnZoneMobs n zone = do
@@ -161,6 +161,9 @@ main = do
 
             -- Shift game layer in opposite direction
             , translate (-px) (-py) (drawWorld sprites world)
+            
+            -- Draw HUD without camera translation
+            , drawHUD world
             ])
         handleLevelInput
         (\dt (level, world) -> (level, updateWorld dt world))

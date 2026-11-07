@@ -86,6 +86,26 @@ drawDamageNumber number =
         (scale textScale textScale
             (color yellow (Text ("-" ++ damageText))))
 
+-- Drawing HUD for HP
+drawHUD :: World -> Picture
+drawHUD world =
+    let
+        -- Retrieve player and health
+        p = player world
+        currentHP = health p
+        maximumHP = maxHealth p
+
+        -- Convert HP into text
+        hpText = "TIME: " ++ show currentHP
+
+        -- Position HUD near top-left of screen
+        hudX = -worldHalfWidth + 20
+        hudY = worldHalfHeight - 40
+
+    in translate hudX hudY
+        (scale 0.15 0.15
+            (color white (Text hpText)))
+
 -- Which frame of an animation to show at time t (loops forever) 
 frameAt :: Animation -> Float -> Art
 frameAt anim t = go (animFrames anim) (animDelays anim) (t `mod'` total)
