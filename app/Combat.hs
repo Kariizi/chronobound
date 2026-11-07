@@ -59,6 +59,7 @@ createDamageNumber damage mob =
         { damagePosition = mobPosition mob 
         , damageAmount = damage 
         , damageLifetime = 0.5
+        , damageHitsPlayer = False 
         }
 
 -- Mob Take Damage 

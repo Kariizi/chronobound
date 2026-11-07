@@ -92,8 +92,52 @@ mobTakeDamage damage mob =
     in mob {mobHealth = newHP}
 
 
--- collide
+-- Distance between the centres of a mob and the player
+distanceToPlayer :: Player -> Mob -> Float
+distanceToPlayer p mob =
+    let (mx, my) = mobPosition mob
+        (px, py) = position p
+    in sqrt ((px - mx)^2 + (py - my)^2)
 
--- attack
+-- Can this mob hit the player right now?
+canHitPlayer :: Player -> Mob -> Bool
+canHitPlayer p mob =
+    mobZone mob == zoneOf (position p)
+    && mobAttackCooldown mob <= 0
+    && distanceToPlayer p mob <= playerRadius + mobRadius mob + mobAttackRange mob
 
--- dead
+-- Count a mob's cooldown down
+tickCooldown :: Float -> Mob -> Mob
+tickCooldown dt mob =
+    mob { mobAttackCooldown = max 0 (mobAttackCooldown mob - dt) }
+
+-- One mob's attack: returns the updated mob and the damage it dealt
+resolveAttack :: Player -> Mob -> (Mob, Int)
+resolveAttack p mob
+    | canHitPlayer p mob = (mob { mobAttackCooldown = mobAttackInterval mob }, mobDamage mob)
+    | otherwise          = (mob, 0)
+
+-- All mobs attack, and the player loses the total damage
+mobAttacks :: Float -> World -> World
+mobAttacks dt world =
+    let
+        p = player world
+        (px, py) = position p
+        ticked = map (tickCooldown dt) (mobs world)
+        results = map (resolveAttack p) ticked
+        totalDamage = sum (map snd results)
+        hitNumbers =
+            [ DamageNumber
+                { damagePosition = (px, py + playerRadius)
+                , damageAmount = dmg
+                , damageLifetime = 0.5
+                , damageHitsPlayer = True
+                }
+            | (_, dmg) <- results, dmg > 0
+            ]
+    in
+        world
+            { mobs = map fst results
+            , player = p { health = max 0 (health p - totalDamage) }
+            , damageNumbers = damageNumbers world ++ hitNumbers
+            }

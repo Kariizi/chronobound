@@ -1,3 +1,4 @@
+
 module View where
 
 import Graphics.Gloss
@@ -70,6 +71,7 @@ drawMob sprites time mob =
 
     in translate x y (scale s s (artPic art))
 
+
 -- Draw a floating damage number
 drawDamageNumber :: DamageNumber -> Picture
 drawDamageNumber number =
@@ -82,9 +84,16 @@ drawDamageNumber number =
 
         textScale = 0.15
 
+        -- Red damage numbers for player, yellow for mobs
+        numberColor =
+            if damageHitsPlayer number
+                then makeColor 1.0 0.2 0.2 1.0
+                else makeColor 1.0 1.0 0.2 1.0
+
     in translate x y
         (scale textScale textScale
-            (color yellow (Text ("-" ++ damageText))))
+            (color numberColor (Text ("-" ++ damageText))))
+
 
 -- Drawing HUD for HP
 drawHUD :: World -> Picture
@@ -106,7 +115,8 @@ drawHUD world =
         (scale 0.15 0.15
             (color white (Text hpText)))
 
--- Which frame of an animation to show at time t (loops forever) 
+
+-- Which frame of an animation to show at time t (loops forever)
 frameAt :: Animation -> Float -> Art
 frameAt anim t = go (animFrames anim) (animDelays anim) (t `mod'` total)
     where
