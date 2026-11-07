@@ -17,5 +17,14 @@ drawWorld world =
         -- Draw player as circle 
         -- view: draw the circle at the model's position
         playerPicture = translate x y (color green (circleSolid 20))
+        mobPictures = map drawMob (mobs world)
 
-    in playerPicture
+     in pictures (playerPicture : mobPictures)
+
+drawMob :: Mob -> Picture
+
+drawMob mob =
+    let
+        (x, y) = mobPosition mob
+
+    in translate x y (color red (circleSolid (mobRadius mob)))
