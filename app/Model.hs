@@ -57,6 +57,7 @@ data Mob = Mob
     , mobRadius :: Float
     , mobAttackRange :: Float
     , mobZone :: Zone
+    , mobSprite :: String
     }
     deriving (Show, Eq)
 initialMob :: Mob
@@ -70,6 +71,7 @@ initialMob =
         , mobRadius = 15.0
         , mobAttackRange = 30.0
         , mobZone = TopRight
+        , mobSprite = "monster_1"
         }
 
  -- Storing information about weapons
