@@ -1,4 +1,7 @@
 import Graphics.Gloss.Interface.Pure.Game
+import Model
+import View
+import Controller
 
 -- Creating Model Type: where circle is
 type Model = (Float, Float)
