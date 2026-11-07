@@ -19,10 +19,16 @@ data Player = Player
     -- All the fields
     { position :: (Float, Float) 
     , velocity :: (Float, Float)
+    , facingDirection :: (Float, Float)
     , health :: Int 
     , maxHealth :: Int
     , moveSpeed :: Float 
+    -- Attack: how long attack remains, cooldown for attack
     , attackDamage :: Int
+    , attackTimer :: Float 
+    , cooldownRemaining :: Float
+    -- Dashing: how long dash remains, direction and cooldown
+    , dashTimer :: Float 
     , equippedWeapon :: Weapon
     } deriving (Show, Eq)
 
@@ -35,7 +41,7 @@ data Mob = Mob
 initialMob :: Mob
 initialMob =
     Mob
-        { mobPosition = (500, 300)
+        { mobPosition = (200, 200)
         , mobHealth = 20
         , mobMaxHealth = 20
         }
@@ -70,10 +76,13 @@ initialPlayer =
     Player
         { position = (0, 0)
         , velocity = (0,0)
+        , facingDirection = (1,0)
         , health = 100
         , maxHealth = 300 
         , moveSpeed = 200.0
         , attackDamage = 3
+        , attackTimer = 0
+        , cooldownRemaining = 0
         , equippedWeapon = Weapon
     { weaponName = "Flintlock Pistol"
     , weaponDamage = 5

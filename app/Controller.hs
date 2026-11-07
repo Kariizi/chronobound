@@ -3,7 +3,7 @@ module Controller where
 import Graphics.Gloss.Interface.Pure.Game
 import Model
 import Player
-import Model (World(heldKeys))
+import Combat
 
 -- Handles keyboard events 
 
@@ -37,6 +37,13 @@ handleInput (EventKey (Char key) Up _ _) world
 
         in world { heldKeys = newKeys }
 
+handleInput (EventKey (SpecialKey KeySpace) Down _ _) world = 
+    let 
+        p = player world 
+        attackingPlayer = startAttack p 
+
+    in world { player = attackingPlayer }
+
 handleInput _ model = model 
 
 -- Calculating the Velocity: For multiple keys
@@ -68,13 +75,25 @@ updateWorld dt world =
         -- Normalise the direction
         normalisedDirection = normaliseVelocity direction
 
+        newFacing = 
+            -- Attack direction will be the direction of movement for now
+            if normalisedDirection == (0,0)
+                then facingDirection p
+                else normalisedDirection 
+
         -- Get updated player with new velocity
-        movingPlayer = p { velocity = normalisedDirection }
+        movingPlayer = p 
+            { velocity = normalisedDirection
+            , facingDirection = newFacing
+            }
 
         -- Move the updated player 
         movedPlayer = movePlayer dt movingPlayer
 
-    in world { player = movedPlayer }
+        -- Update the players timers
+        updatedPlayer = updateAttack dt movedPlayer
+
+    in world { player = updatedPlayer }
 
 -- Normalising Movement
 normaliseVelocity :: (Float, Float) -> (Float, Float)
