@@ -1,6 +1,3 @@
-module Main where
-
-import Graphics.Gloss.Interface.Pure.Game
 import Model
 import View
 import Controller
