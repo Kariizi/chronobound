@@ -133,7 +133,7 @@ data Upgrade
 initialPlayer :: Player 
 initialPlayer = 
     Player
-        { position = (-200, 150)
+        { position = (0, 0)
         , velocity = (0,0)
         , facingDirection = (1,0)
         , health = 100

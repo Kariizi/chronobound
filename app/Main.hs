@@ -21,13 +21,34 @@ data Maps = Maps
 mapZoom :: Float
 mapZoom = 2
 
-drawLevel :: Maps -> Level -> Picture
-drawLevel ms level =
-    let view = (windowWidth / mapZoom, windowHeight / mapZoom)
+-- Draw the current level using the player's position as the camera
+drawLevel :: Maps -> Level -> (Float, Float) -> Picture
+drawLevel ms level (px, py) =
+    let
+        view = (windowWidth / mapZoom, windowHeight / mapZoom)
+
+        -- Calculate camera position relative to the level's starting point
+        camFrom (sx, sy) =
+            ( sx + px / mapZoom
+            , sy - py / mapZoom
+            )
+
         picture = case level of
-            VictoriaLevel -> let m = victoriaMap ms in Victoria.drawVictoria m view (Victoria.startView m)
-            LimboLevel    -> let m = limboMap ms    in Limbo.drawLimbo m view (Limbo.startView m)
-            HellLevel     -> let m = hellMap ms     in Hell.drawHell m view (Hell.startView m)
+            VictoriaLevel ->
+                let
+                    m = victoriaMap ms
+                in Victoria.drawVictoria m view (camFrom (Victoria.startView m))
+
+            LimboLevel ->
+                let
+                    m = limboMap ms
+                in Limbo.drawLimbo m view (camFrom (Limbo.startView m))
+
+            HellLevel ->
+                let
+                    m = hellMap ms
+                in Hell.drawHell m view (camFrom (Hell.startView m))
+
     in scale mapZoom mapZoom picture
 
 handleLevelInput :: Event -> (Level, World) -> (Level, World)
@@ -109,6 +130,17 @@ main = do
         black
         60
         (VictoriaLevel, startingWorld)
-        (\(level, world) -> pictures [drawLevel maps level, drawWorld sprites world])
+        (\(level, world) ->
+        let
+            -- Retrieves player's position
+            (px, py) = position (player world)
+
+        in pictures
+            [ -- Draw map relative to player position
+            drawLevel maps level (px, py)
+
+            -- Shift game layer in opposite direction
+            , translate (-px) (-py) (drawWorld sprites world)
+            ])
         handleLevelInput
         (\dt (level, world) -> (level, updateWorld dt world))
