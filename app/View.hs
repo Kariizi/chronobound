@@ -84,15 +84,15 @@ drawDamageNumber number =
 
         textScale = 0.15
 
-        -- Red damage numbers for player, yellow for mobs
-        numberColor =
-            if damageHitsPlayer number
-                then makeColor 1.0 0.2 0.2 1.0
-                else makeColor 1.0 1.0 0.2 1.0
+        -- Green +N for time gained, red -N for player damage, yellow -N for mobs
+        (numberColor, sign)
+            | gainedHP number     = (makeColor 0.2 1.0 0.3 1.0, "+")
+            | damageHitsPlayer number = (makeColor 1.0 0.2 0.2 1.0, "-")
+            | otherwise               = (makeColor 1.0 1.0 0.2 1.0, "-")
 
     in translate x y
         (scale textScale textScale
-            (color numberColor (Text ("-" ++ damageText))))
+            (color numberColor (Text (sign ++ damageText))))
 
 
 -- Drawing HUD for HP

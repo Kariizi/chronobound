@@ -117,6 +117,8 @@ data DamageNumber = DamageNumber
     , damageAmount :: Int
     , damageLifetime :: Float
     , damageHitsPlayer :: Bool
+    -- True for time gained (shown as green +N)
+    , gainedHP :: Bool
     } deriving (Show, Eq)
 
 -- Window size: change these and everything else follows
