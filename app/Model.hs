@@ -110,6 +110,9 @@ edgeMargin, lineMargin :: Float
 edgeMargin = 30
 lineMargin = 30
 
+playerRadius :: Float
+playerRadius = 20
+
 data Zone = TopLeft | TopRight | BottomLeft | BottomRight 
    deriving (Show, Eq, Enum, Bounded)
 
