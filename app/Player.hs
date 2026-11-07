@@ -3,6 +3,22 @@
 module Player where
 import Model 
 
+-- General Upgrade 
+applyUpgrade :: Upgrade -> Player -> Player 
+applyUpgrade upgrade p = 
+    -- Checks upgrade selected
+    case upgrade of 
+        HealthUpgrade amount -> 
+            let 
+                currentHP = health p 
+                maximum
+            newMaxHP = maxHealth + amount
+            newHp = health + amount
+        SpeedUpgrade  amount -> 
+            newMoveSpeed = speed + amount 
+        DamageUpgrade  amount ->
+            newDamage = attackDamage + amount 
+
 -- Player Movement: Takes deltatime & player, returns a player
 movePlayer :: Float -> Player -> Player 
 -- Takes delta time (time for update) and player

@@ -3,6 +3,7 @@
 -- Players or Mobs, etc 
 
 module Model where
+import Model (Upgrade(SpeedUpgrade))
 
 -- Storing the game world:
 data World = World 
@@ -10,10 +11,43 @@ data World = World
     } deriving (Show, Eq)
 
 -- Storing information about the player
+
+-- Declares type Player, where Player is the constructor
 data Player = Player 
+    -- All the fields
     { position :: (Float, Float) 
     , velocity :: (Float, Float)
     , health :: Int 
+    , maxHealth :: Int
+    , moveSpeed :: Float 
+    , attackDamage :: Int
     } deriving (Show, Eq)
 
+-- Declaring Upgrade Types:
+data Upgrade 
+    = HealthUpgrade Int 
+    | SpeedUpgrade  Float
+    | DamageUpgrade Int
+    deriving (Show, Eq)
+
+-- Defining Initial Attributes:
+
+-- Initial players stats
+initialPlayer :: Player 
+initialPlayer = 
+    Player
+        { position = (400, 300)
+        , velocity = (0,0)
+        , health = 100
+        , maxHealth = 300 
+        , moveSpeed = 2.0
+        , attackDamage = 3
+        }
+
+-- Inital Game World
+initialWorld :: World 
+initialWorld = 
+    World
+        { player = initialPlayer
+        }
 
