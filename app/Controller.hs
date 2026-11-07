@@ -5,7 +5,6 @@ import Model
 import Player
 import Combat
 import Mob
-import Model (DamageNumber(DamageNumber), World (damageNumbers))
 
 -- Handles keyboard events
 handleInput :: Event -> World -> World
@@ -67,6 +66,10 @@ handleInput (EventKey (Char 'f') Down _ _) world =
         dashingPlayer = startDash chosenDirection p
 
     in world { player = dashingPlayer }
+
+-- Rewind with R: Current world is passed to rewindPlayer 
+handleInput (EventKey (Char 'r') Down _ _) world =
+    rewindPlayer world
 
 -- Ignore other keyboard events
 handleInput _ world = world
@@ -156,7 +159,8 @@ updateWorld dt world =
 
         -- Update attack and dash timers
         attackUpdatedPlayer = updateAttack dt movedPlayer
-        updatedPlayer = updateDash dt attackUpdatedPlayer
+        dashUpdatedPlayer = updateDash dt attackUpdatedPlayer
+        updatedPlayer = updateRewind dt dashUpdatedPlayer
 
         -- Store updated player in world (update the player in world)
         worldWithPlayer = world { player = updatedPlayer }
@@ -167,5 +171,7 @@ updateWorld dt world =
         worldWithNumbers = worldWithPlayer
             { damageNumbers = updatedNumbers }
 
+        worldWithMobs = moveMobs dt worldWithNumbers
+
     -- Update mobs using the new player position
-    in moveMobs dt worldWithNumbers
+    in recordPlayerSnapshot dt worldWithMobs
