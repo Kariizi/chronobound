@@ -6,6 +6,7 @@ import System.Random (randomRIO)
 import qualified Victoria
 import qualified Limbo
 import qualified Hell
+import MapArt
 
 -- Which map is showing. Temporary: press 1, 2 or 3 to switch while we integrate the maps.
 data Level = VictoriaLevel | LimboLevel | HellLevel
@@ -60,7 +61,6 @@ randomMobPositionsIn zone n positions = do
         else randomMobPositionsIn zone (n - 1) (newPosition : positions)
 
 
-
 tooClose :: (Float, Float) -> (Float, Float) -> Bool
 tooClose (x1, y1) (x2, y2) =
     (x2 - x1)^2 + (y2 - y1)^2 < 80^2
@@ -81,11 +81,18 @@ main = do
         <*> Limbo.loadLimbo "app/assets/limbo"
         <*> Hell.loadHell "app/assets/hell"
 
+    sprites <- loadArtSet "app/assets/sprites"
+        ["monster_1", "monster_2", "monster_3",
+         "vampire_1", "vampire_2", "vampire_3",
+         "werewolf_1", "werewolf_2", "werewolf_3",
+         "normal", "scary"
+        ]
+
     play
         (InWindow "Chronobound" (round windowWidth, round windowHeight) (100, 100))
         black
         60
         (VictoriaLevel, startingWorld)
-        (\(level, world) -> pictures [drawLevel maps level, drawWorld world])
+        (\(level, world) -> pictures [drawLevel maps level, drawWorld sprites world])
         handleLevelInput
         (\dt (level, world) -> (level, updateWorld dt world))
