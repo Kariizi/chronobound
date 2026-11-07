@@ -18,13 +18,23 @@ drawWorld world =
         -- view: draw the circle at the model's position
         playerPicture = translate x y (color green (circleSolid 20))
         mobPictures = map drawMob (mobs world)
+        dividers = color (greyN 0.7) $ pictures
+            [ line [(-worldHalfWidth, 0), (worldHalfWidth, 0)]
+            , line [(0, -worldHalfHeight), (0, worldHalfHeight)]
+            ]
 
-     in pictures (playerPicture : mobPictures)
+
+     in pictures (dividers : playerPicture : mobPictures)
 
 drawMob :: Mob -> Picture
 
 drawMob mob =
     let
         (x, y) = mobPosition mob
+        zoneColour = case mobZone mob of
+            TopLeft     -> red
+            TopRight    -> orange
+            BottomLeft  -> magenta
+            BottomRight -> blue
 
-    in translate x y (color red (circleSolid (mobRadius mob)))
+    in translate x y (color zoneColour (circleSolid (mobRadius mob)))

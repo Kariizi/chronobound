@@ -6,19 +6,29 @@ import View
 import Controller
 import System.Random (randomRIO)
 
+zoneBounds :: Zone -> (Float, Float, Float, Float)
+zoneBounds TopLeft     = (-maxX, -lineMargin,  lineMargin,  maxY)
+zoneBounds TopRight    = ( lineMargin,  maxX,  lineMargin,  maxY)
+zoneBounds BottomLeft  = (-maxX, -lineMargin, -maxY, -lineMargin)
+zoneBounds BottomRight = ( lineMargin,  maxX, -maxY, -lineMargin)
 
-randomMobPositions :: Int -> [(Float, Float)] -> IO [(Float, Float)]
-randomMobPositions 0 positions = return positions
+maxX, maxY :: Float
+maxX = worldHalfWidth  - edgeMargin
+maxY = worldHalfHeight - edgeMargin
 
-randomMobPositions n positions = do
-    x <- randomRIO (-370, 370)
-    y <- randomRIO (-270, 270)
+randomMobPositionsIn :: Zone -> Int -> [(Float, Float)] -> IO [(Float, Float)]
+randomMobPositionsIn _ 0 positions = return positions
+
+randomMobPositionsIn zone n positions = do
+    let (x0, x1, y0, y1) = zoneBounds zone
+    x <- randomRIO (x0, x1)
+    y <- randomRIO (y0, y1)
 
     let newPosition = (x, y)
 
     if any (tooClose newPosition) (position initialPlayer : positions)
-        then randomMobPositions n positions
-        else randomMobPositions (n - 1) (newPosition : positions)
+        then randomMobPositionsIn zone n positions
+        else randomMobPositionsIn zone (n - 1) (newPosition : positions)
 
 
 
@@ -26,17 +36,19 @@ tooClose :: (Float, Float) -> (Float, Float) -> Bool
 tooClose (x1, y1) (x2, y2) =
     (x2 - x1)^2 + (y2 - y1)^2 < 80^2
 
+spawnZoneMobs :: Int -> Zone -> IO [Mob]
+spawnZoneMobs n zone = do
+    positions <- randomMobPositionsIn zone n []
+    return (map (\pos -> initialMob { mobPosition = pos, mobZone = zone }) positions)
+
 main :: IO ()
 main = do
-    positions <- randomMobPositions 8 []
+    startingMobs <- concat <$> mapM (spawnZoneMobs 2) [minBound .. maxBound]
 
-    let startingMobs =
-            map (\pos -> initialMob { mobPosition = pos }) positions
-
-        startingWorld = initialWorld { mobs = startingMobs }
+    let startingWorld = initialWorld { mobs = startingMobs }
 
     play
-        (InWindow "Chronobound" (800, 600) (100, 100))
+        (InWindow "Chronobound" (round windowWidth, round windowHeight) (100, 100))
         white
         60
         startingWorld
