@@ -65,13 +65,22 @@ updateWorld dt world =
 
         -- Calculating direction (Velocity) 
         direction = calculateVelocity keys
+        -- Normalise the direction
+        normalisedDirection = normaliseVelocity direction
 
         -- Get updated player with new velocity
-        movingPlayer = p { velocity = direction }
+        movingPlayer = p { velocity = normalisedDirection }
 
         -- Move the updated player 
         movedPlayer = movePlayer dt movingPlayer
 
     in world { player = movedPlayer }
 
-
+-- Normalising Movement
+normaliseVelocity :: (Float, Float) -> (Float, Float)
+normaliseVelocity (vx, vy) = 
+    let 
+        magnitude = (sqrt(vx^2 + vy^2))
+    in if magnitude == 0 
+        then (0,0)
+        else (vx / magnitude, vy / magnitude)
