@@ -26,4 +26,30 @@ updateAttack dt p =
         newCooldown = max 0 (currentCooldown - dt)
     in p { attackTimer = newTimer, cooldownRemaining = newCooldown }
 
--- Melee Attack: 
+-- Checking if mob is in range of attack
+isMobInRange :: Player -> Mob -> Bool 
+isMobInRange p mob = 
+    let 
+        -- Player position + Facing 
+        (px, py) = position p
+        (fx, fy) = facingDirection p 
+
+        -- Mob position
+        (mx, my) = mobPosition mob 
+
+        -- Gets attack position 
+        attackDistance = 40 
+        attackX = px + fx * attackDistance 
+        attackY = py + fy * attackDistance
+
+        -- Squared distance from attack centre to mob 
+        distanceSquared = (attackX - mx)^2 + (attackY - my)^2 
+
+        -- Distance mov can be for it to be hit (units from centre)
+        -- Square to get squared for comparison  
+        hitRadius = 35 
+
+    -- Checks if the distance from mob and centre is less than meaning its inside attack 
+    in distanceSquared <= hitRadius * hitRadius 
+
+-- Mob Take Damage 
