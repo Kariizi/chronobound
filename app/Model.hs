@@ -12,6 +12,7 @@ data World = World
     , projectiles :: [Projectile]
     , damageNumbers :: [DamageNumber]
     , playerHistory :: [PlayerSnapshot]
+    , worldTime :: Float 
     } deriving (Show, Eq)
 
 -- Storing information about the player
@@ -58,6 +59,7 @@ data Mob = Mob
     , mobAttackRange :: Float
     , mobZone :: Zone
     , mobSprite :: String
+    , mobAnimOffset :: Float
     }
     deriving (Show, Eq)
 initialMob :: Mob
@@ -72,6 +74,7 @@ initialMob =
         , mobAttackRange = 30.0
         , mobZone = TopRight
         , mobSprite = "monster_1"
+        , mobAnimOffset = 0
         }
 
  -- Storing information about weapons
@@ -184,5 +187,6 @@ initialWorld =
         , projectiles = []
         , damageNumbers = []
         , playerHistory = []
+        , worldTime = 0
         }
 

@@ -5,9 +5,10 @@ import Model
 import Combat (isAttacking)
 import qualified Data.Map.Strict as M
 import MapArt
+import Data.Fixed (mod')
 
 -- Drawing the world
-drawWorld :: M.Map String Art -> World -> Picture
+drawWorld :: M.Map String Animation -> World -> Picture
 drawWorld sprites world =
     let
         -- Retrieve the player
@@ -19,11 +20,15 @@ drawWorld sprites world =
         -- Player facing direction
         (fx, fy) = facingDirection p
 
-        -- Draw player, flipped to face left or right
+        -- Draw player using breathing animation, flipped to face left or right
         playerPicture =
-            let art = sprites M.! "normal"
-                s   = 2
-                sx  = if fx < 0 then -s else s
+            let
+                -- Retrieves current animation frame based on game time
+                art = frameAt (sprites M.! "player_breathe") (worldTime world)
+
+                s = 2
+                sx = if fx < 0 then -s else s
+
             in translate x y (scale sx s (artPic art))
 
         -- How far in front of the player the attack appears
@@ -41,7 +46,7 @@ drawWorld sprites world =
                 else Blank
 
         -- Draw all mobs
-        mobPictures = map (drawMob sprites) (mobs world)
+        mobPictures = map (drawMob sprites (worldTime world)) (mobs world)
 
         -- Draw floating damage numbers
         damagePictures = map drawDamageNumber (damageNumbers world)
@@ -50,12 +55,19 @@ drawWorld sprites world =
     in pictures (mobPictures ++ [playerPicture, attackPicture] ++ damagePictures)
 
 
--- Draw individual mob
-drawMob :: M.Map String Art -> Mob -> Picture
-drawMob sprites mob =
-    let (x, y) = mobPosition mob
-        art    = sprites M.! mobSprite mob
-        s      = 2
+-- Draw individual mob using its animation
+drawMob :: M.Map String Animation -> Float -> Mob -> Picture
+drawMob sprites time mob =
+    let
+        -- Retrieve mob position
+        (x, y) = mobPosition mob
+
+        -- Select animation frame with individual mob offset
+        art = frameAt (sprites M.! mobSprite mob)
+            (time + mobAnimOffset mob)
+
+        s = 2
+
     in translate x y (scale s s (artPic art))
 
 -- Draw a floating damage number
@@ -73,3 +85,20 @@ drawDamageNumber number =
     in translate x y
         (scale textScale textScale
             (color yellow (Text ("-" ++ damageText))))
+
+-- Which frame of an animation to show at time t (loops forever) 
+frameAt :: Animation -> Float -> Art
+frameAt anim t = go (animFrames anim) (animDelays anim) (t `mod'` total)
+    where
+        -- Total duration of all animation frames
+        total = sum (animDelays anim)
+
+        -- Takes current frame, delay and remaining time
+        go (f : fs) (d : ds) remaining
+            -- Return frame if time is within its duration or it's the last frame
+            | remaining < d || null fs = f
+            -- Otherwise skip frame and subtract its duration
+            | otherwise = go fs ds (remaining - d)
+
+        -- Error if no frames are available
+        go _ _ _ = error "animation with no frames"
