@@ -3,11 +3,12 @@
 -- Players or Mobs, etc 
 
 module Model where
-import Model (Upgrade(SpeedUpgrade))
 
 -- Storing the game world:
 data World = World 
     { player :: Player 
+    , mobs :: [Mob]
+    , projectiles :: [Projectile]
     } deriving (Show, Eq)
 
 -- Storing information about the player
@@ -21,6 +22,36 @@ data Player = Player
     , maxHealth :: Int
     , moveSpeed :: Float 
     , attackDamage :: Int
+    , equippedWeapon :: Weapon
+    } deriving (Show, Eq)
+
+-- Storing information about the mobs
+data Mob = Mob
+    {mobPosition :: (Float, Float)
+    , mobHealth :: Int
+    , mobMaxHealth :: Int}
+    deriving (Show, Eq)
+initialMob :: Mob
+initialMob =
+    Mob
+        { mobPosition = (500, 300)
+        , mobHealth = 20
+        , mobMaxHealth = 20
+        }
+
+ -- Storing information about weapons
+data Weapon = Weapon
+    { weaponName :: String
+    , weaponDamage :: Int
+    , projectileSpeed :: Float
+    , attackRange :: Float
+    } deriving (Show, Eq)
+
+data Projectile = Projectile
+    { projectilePosition :: (Float, Float)
+    , projectileVelocity :: (Float, Float)
+    , projectileDamage :: Int
+    , projectileRange :: Float
     } deriving (Show, Eq)
 
 -- Declaring Upgrade Types:
@@ -42,12 +73,21 @@ initialPlayer =
         , maxHealth = 300 
         , moveSpeed = 2.0
         , attackDamage = 3
+        , equippedWeapon = Weapon
+    { weaponName = "Flintlock Pistol"
+    , weaponDamage = 5
+    , projectileSpeed = 6.0
+    , attackRange = 300.0
+    }
         }
+        
 
 -- Inital Game World
 initialWorld :: World 
 initialWorld = 
     World
         { player = initialPlayer
+        , mobs = [initialMob]
+        , projectiles = []
         }
 
