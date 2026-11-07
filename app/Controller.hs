@@ -4,6 +4,7 @@ import Graphics.Gloss.Interface.Pure.Game
 import Model
 import Player
 import Model (World(heldKeys))
+import Mob
 
 -- Handles keyboard events 
 
@@ -73,8 +74,9 @@ updateWorld dt world =
 
         -- Move the updated player 
         movedPlayer = movePlayer dt movingPlayer
+        worldWithPlayer = world { player = movedPlayer }
 
-    in world { player = movedPlayer }
+    in moveMobs dt worldWithPlayer
 
 -- Normalising Movement
 normaliseVelocity :: (Float, Float) -> (Float, Float)

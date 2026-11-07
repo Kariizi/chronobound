@@ -1,9 +1,78 @@
 module Mob where
 import Model
 
--- add monsters to the map
-
 -- monster movements
+moveMob :: Float -> Player -> Mob -> Mob
+moveMob dt p mob =
+    let
+        (mx, my) = mobPosition mob
+        (px, py) = position p
+
+        -- Calculate direction towards the player
+        dx = px - mx
+        dy = py - my
+
+        -- Calculate distance between monster and player
+        distance = sqrt (dx^2 + dy^2)
+
+ in
+        if distance == 0
+        then mob
+        else 
+            let
+                -- Calculate how far the monster should move
+                travelDistance = min distance (mobSpeed mob * dt)
+
+                -- Calculate new position
+                newX = mx + (dx / distance) * travelDistance
+                newY = my + (dy / distance) * travelDistance
+
+            in mob { mobPosition = (newX, newY) }
+
+
+       
+
+moveMobs :: Float -> World -> World
+moveMobs dt world =
+    let
+        p = player world
+        oldMobs = mobs world
+        newMobs = map (moveMob dt p) oldMobs
+        separatedMobs = resolveAllCollisions oldMobs newMobs
+    in
+        world { mobs = separatedMobs }
+        
+-- Check collisions for all monsters
+resolveAllCollisions :: [Mob] -> [Mob] -> [Mob]
+resolveAllCollisions oldMobs newMobs =
+    zipWith checkCollision oldMobs newMobs
+    where
+        checkCollision oldMob newMob =
+            let
+                otherMobs = filter (/= oldMob) oldMobs
+                overlapping = any (colliding newMob) otherMobs
+            in
+                if overlapping
+                then oldMob
+                else newMob
+
+mobCollisionDistance :: Mob -> Mob -> Float
+mobCollisionDistance mob1 mob2 =
+    mobRadius mob1 + mobRadius mob2
+
+distanceBetweenMobs :: Mob -> Mob -> Float
+distanceBetweenMobs mob1 mob2 =
+    let
+        (x1, y1) = mobPosition mob1
+        (x2, y2) = mobPosition mob2
+    in
+        sqrt ((x2 - x1)^2 + (y2 - y1)^2)
+
+
+colliding :: Mob -> Mob -> Bool
+colliding mob1 mob2 =
+    distanceBetweenMobs mob1 mob2 < mobCollisionDistance mob1 mob2
+
 
 -- collide
 
