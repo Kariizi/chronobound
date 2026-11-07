@@ -11,6 +11,7 @@ data World = World
     , heldKeys :: [Char]
     , projectiles :: [Projectile]
     , damageNumbers :: [DamageNumber]
+    , playerHistory :: [PlayerSnapshot]
     } deriving (Show, Eq)
 
 -- Storing information about the player
@@ -33,6 +34,15 @@ data Player = Player
     , dashCooldownRemaining :: Float 
     , dashDirection :: (Float, Float)
     , equippedWeapon :: Weapon
+    } deriving (Show, Eq)
+
+data PlayerSnapshot = PlayerSnapshot
+    -- Players Position
+    { snapshotPosition :: (Float, Float)
+    -- Players Health then
+    , snapshotHealth :: Int 
+    -- When snapshot was recorded
+    , snapshotAge :: Float
     } deriving (Show, Eq)
 
 -- Storing information about the mobs
@@ -137,5 +147,6 @@ initialWorld =
         , mobs = [initialMob]
         , projectiles = []
         , damageNumbers = []
+        , playerHistory = []
         }
 
