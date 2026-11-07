@@ -38,14 +38,22 @@ data Player = Player
 data Mob = Mob
     {mobPosition :: (Float, Float)
     , mobHealth :: Int
-    , mobMaxHealth :: Int}
+    , mobMaxHealth :: Int
+    ,mobSpeed :: Float
+    , mobDamage :: Int
+    , mobRadius :: Float
+    , mobAttackRange :: Float}
     deriving (Show, Eq)
 initialMob :: Mob
 initialMob =
     Mob
-        { mobPosition = (200, 200)
+        { mobPosition = (200,150)
         , mobHealth = 20
         , mobMaxHealth = 20
+        , mobSpeed = 80.0
+        , mobDamage = 5
+        , mobRadius = 15.0
+        , mobAttackRange = 30.0
         }
 
  -- Storing information about weapons

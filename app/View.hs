@@ -3,45 +3,57 @@ module View where
 import Graphics.Gloss
 import Model
 import Combat (isAttacking)
-import Player
+import Player (isDashing)
 
 -- Drawing the world
-
-drawWorld :: World -> Picture 
-drawWorld world = 
-    let 
-        -- Retrieve the Player 
+drawWorld :: World -> Picture
+drawWorld world =
+    let
+        -- Retrieve the player
         p = player world
 
-        -- Extract player coordinated
+        -- Player position
         (x, y) = position p
 
-        -- Retrieve the player's facing direction
+        -- Player facing direction
         (fx, fy) = facingDirection p
 
-        -- Change colour based on whether the player is dashing
+        -- Change colour when dashing
         playerColour =
             if isDashing p
                 then blue
                 else green
 
-        -- Draw player as circle 
-        -- view: draw the circle at the model's position
-        playerPicture = translate x y (color playerColour (circleSolid 20))
-        
-         -- How far in front of the player the attack appears
+        -- Draw player
+        playerPicture =
+            translate x y (color playerColour (circleSolid 20))
+
+        -- How far in front of the player the attack appears
         attackDistance = 40
 
-        -- Calculate attack position using facing direction
+        -- Calculate attack position
         attackX = x + fx * attackDistance
         attackY = y + fy * attackDistance
 
-        -- Draw attack indicator only while attacking
+        -- Draw melee attack indicator
         attackPicture =
             if isAttacking p
                 then translate attackX attackY
                     (color orange (circleSolid 15))
                 else Blank
 
-    -- Render both the player and their attack
-    in pictures [playerPicture, attackPicture]
+        -- Draw all mobs
+        mobPictures = map drawMob (mobs world)
+
+    -- Combine player, attack and mobs
+    in pictures (mobPictures ++ [playerPicture, attackPicture])
+
+
+-- Draw individual mob
+drawMob :: Mob -> Picture
+drawMob mob =
+    let
+        (x, y) = mobPosition mob
+
+    in translate x y
+        (color red (circleSolid (mobRadius mob)))
