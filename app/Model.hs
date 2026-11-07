@@ -10,6 +10,8 @@ data World = World
     , mobs :: [Mob]
     , heldKeys :: [Char]
     , projectiles :: [Projectile]
+    , damageNumbers :: [DamageNumber]
+    , playerHistory :: [PlayerSnapshot]
     } deriving (Show, Eq)
 
 -- Storing information about the player
@@ -19,11 +21,28 @@ data Player = Player
     -- All the fields
     { position :: (Float, Float) 
     , velocity :: (Float, Float)
+    , facingDirection :: (Float, Float)
     , health :: Int 
     , maxHealth :: Int
     , moveSpeed :: Float 
+    -- Attack: how long attack remains, cooldown for attack
     , attackDamage :: Int
+    , attackTimer :: Float 
+    , cooldownRemaining :: Float
+    -- Dashing: how long dash remains, direction and cooldown
+    , dashTimer :: Float
+    , dashCooldownRemaining :: Float 
+    , dashDirection :: (Float, Float)
     , equippedWeapon :: Weapon
+    } deriving (Show, Eq)
+
+data PlayerSnapshot = PlayerSnapshot
+    -- Players Position
+    { snapshotPosition :: (Float, Float)
+    -- Players Health then
+    , snapshotHealth :: Int 
+    -- When snapshot was recorded
+    , snapshotAge :: Float
     } deriving (Show, Eq)
 
 -- Storing information about the mobs
@@ -66,6 +85,13 @@ data Projectile = Projectile
     , projectileRange :: Float
     } deriving (Show, Eq)
 
+-- Floating damage numbers
+data DamageNumber = DamageNumber
+    { damagePosition :: (Float, Float)
+    , damageAmount :: Int 
+    , damageLifetime :: Float 
+    } deriving (Show, Eq)
+
 -- Window size: change these and everything else follows
 windowWidth, windowHeight :: Float
 windowWidth  = 800
@@ -105,10 +131,16 @@ initialPlayer =
     Player
         { position = (-200, 150)
         , velocity = (0,0)
+        , facingDirection = (1,0)
         , health = 100
         , maxHealth = 300 
         , moveSpeed = 200.0
         , attackDamage = 3
+        , attackTimer = 0
+        , cooldownRemaining = 0
+        , dashTimer = 0
+        , dashCooldownRemaining = 0
+        , dashDirection = (1, 0)
         , equippedWeapon = Weapon
     { weaponName = "Flintlock Pistol"
     , weaponDamage = 5
@@ -116,6 +148,22 @@ initialPlayer =
     , attackRange = 300.0
     }
         }
+
+-- Initialising Variables: Functions can retrieve
+dashSpeed :: Float 
+dashSpeed = 800 
+
+dashDuration :: Float 
+dashDuration = 0.12 
+
+dashCooldown :: Float 
+dashCooldown = 0.8
+
+meleeAttackDistance :: Float 
+meleeAttackDistance = 40 
+
+meleeHitRadius :: Float 
+meleeHitRadius = 35 
         
 
 -- Inital Game World
@@ -126,5 +174,7 @@ initialWorld =
         , heldKeys = []
         , mobs = [initialMob]
         , projectiles = []
+        , damageNumbers = []
+        , playerHistory = []
         }
 

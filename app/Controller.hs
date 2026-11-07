@@ -3,86 +3,169 @@ module Controller where
 import Graphics.Gloss.Interface.Pure.Game
 import Model
 import Player
-import Model (World(heldKeys))
+import Combat
 import Mob
+import Model (DamageNumber(DamageNumber), World (damageNumbers))
 
--- Handles keyboard events 
+-- Handles keyboard events
+handleInput :: Event -> World -> World
 
-handleInput :: Event -> World -> World 
+-- Updating held keys for WASD movement
+handleInput (EventKey (Char key) Down _ _) world
+    | key `elem` "wasd" =
+        let
+            currentKeys = heldKeys world
 
--- Updating Held Keys: So now it stores what keys are being pressed, and what keys aren't pressed
-handleInput (EventKey (Char key) Down _ _) world 
-    | key `elem` "wasd" = 
-        let 
-            currentKeys = heldKeys world 
-
-            newKeys = 
-                if (key `elem` currentKeys ) 
+            newKeys =
+                if key `elem` currentKeys
                     then currentKeys
                     else key : currentKeys
 
-        
         in world { heldKeys = newKeys }
 
-handleInput (EventKey (Char key) Up _ _) world 
-    | key `elem` "wasd" = 
-        let 
-            currentKeys = heldKeys world 
+-- Releasing WASD keys
+handleInput (EventKey (Char key) Up _ _) world
+    | key `elem` "wasd" =
+        let
+            currentKeys = heldKeys world
 
-            newKeys = 
-                if (key `elem` currentKeys )
-                    -- Goes through list and checks the element isn't equal to key 
-                    -- Returns list with keys that isn't equal to key
-                    then filter(/= key) currentKeys 
+            newKeys =
+                if key `elem` currentKeys
+                    then filter (/= key) currentKeys
                     else currentKeys
 
         in world { heldKeys = newKeys }
 
-handleInput _ model = model 
+-- Melee attacking with Space
+handleInput (EventKey (SpecialKey KeySpace) Down _ _) world 
+    -- Checks if attack is on cooldown, if so return original world
+    | cooldownRemaining p > 0 = world 
+    -- Performs attack: worldWithAttack updates player, performMeleeAttackMob updates mobs HP  
+    | otherwise = performMeleeAttackMob worldWithAttack 
+    where 
+        p = player world 
+        attackingPlayer = startAttack p 
+        -- Replaces the current player with attacking player
+        worldWithAttack = world { player = attackingPlayer }
 
--- Calculating the Velocity: For multiple keys
+-- Dashing with F
+handleInput (EventKey (Char 'f') Down _ _) world =
+    let
+        p = player world
+        keys = heldKeys world
+
+        -- Calculate movement direction
+        direction = normaliseVelocity (calculateVelocity keys)
+
+        -- Use current movement direction or previous facing direction
+        chosenDirection =
+            if direction == (0, 0)
+                then facingDirection p
+                else direction
+
+        -- Start dash
+        dashingPlayer = startDash chosenDirection p
+
+    in world { player = dashingPlayer }
+
+-- Ignore other keyboard events
+handleInput _ world = world
+
+
+-- Calculate velocity from held WASD keys
 calculateVelocity :: [Char] -> (Float, Float)
-calculateVelocity keys = 
+calculateVelocity keys =
     let
         vx
-            -- If D is pressed AND A is not pressed, move right (positive X direction)
             | 'd' `elem` keys && not ('a' `elem` keys) = 1
-            -- If A is pressed AND D is not pressed, move left (negative X direction)
             | 'a' `elem` keys && not ('d' `elem` keys) = -1
             | otherwise = 0
 
-        vy 
+        vy
             | 'w' `elem` keys && not ('s' `elem` keys) = 1
             | 's' `elem` keys && not ('w' `elem` keys) = -1
             | otherwise = 0
 
-    in (vx,vy)
+    in (vx, vy)
 
-updateWorld :: Float -> World -> World 
-updateWorld dt world = 
-    let 
-        p = player world 
-        keys = heldKeys world 
 
-        -- Calculating direction (Velocity) 
+-- Normalise velocity to prevent faster diagonal movement
+normaliseVelocity :: (Float, Float) -> (Float, Float)
+normaliseVelocity (vx, vy) =
+    let
+        magnitude = sqrt (vx^2 + vy^2)
+
+    in if magnitude == 0
+        then (0, 0)
+        else (vx / magnitude, vy / magnitude)
+
+updateDamageNumbers :: Float -> [DamageNumber] -> [DamageNumber]
+updateDamageNumbers dt numbers =
+    let
+        updateOneNumber number =
+            let
+                (x, y) = damagePosition number
+                floatSpeed = 60
+
+                newY = y + (floatSpeed * dt)
+                newLifetime = max 0 (damageLifetime number - dt)
+
+            in number
+                { damagePosition = (x, newY)
+                , damageLifetime = newLifetime
+                }
+
+        updatedNumbers = map updateOneNumber numbers
+        activeNumbers = filter isActive updatedNumbers
+
+        isActive number
+            | damageLifetime number > 0 = True
+            | otherwise = False
+
+    in activeNumbers
+
+
+-- Update the game world every frame
+updateWorld :: Float -> World -> World
+updateWorld dt world =
+    let
+        p = player world
+        keys = heldKeys world
+
+        -- Calculate movement direction
         direction = calculateVelocity keys
-        -- Normalise the direction
         normalisedDirection = normaliseVelocity direction
 
-        -- Get updated player with new velocity
-        movingPlayer = p { velocity = normalisedDirection }
+        -- Determine which direction the player faces
+        newFacing
+            | isDashing p = dashDirection p
+            | normalisedDirection == (0, 0) = facingDirection p
+            | otherwise = normalisedDirection
 
-        -- Move the updated player 
-        movedPlayer = movePlayer dt movingPlayer
-        worldWithPlayer = world { player = movedPlayer }
+        -- Update player's velocity and facing direction
+        movingPlayer = p
+            { velocity = normalisedDirection
+            , facingDirection = newFacing
+            }
 
-    in moveMobs dt worldWithPlayer
+        -- Move normally or dash
+        movedPlayer =
+            if isDashing movingPlayer
+                then dashMovement dt movingPlayer
+                else movePlayer dt movingPlayer
 
--- Normalising Movement
-normaliseVelocity :: (Float, Float) -> (Float, Float)
-normaliseVelocity (vx, vy) = 
-    let 
-        magnitude = (sqrt(vx^2 + vy^2))
-    in if magnitude == 0 
-        then (0,0)
-        else (vx / magnitude, vy / magnitude)
+        -- Update attack and dash timers
+        attackUpdatedPlayer = updateAttack dt movedPlayer
+        updatedPlayer = updateDash dt attackUpdatedPlayer
+
+        -- Store updated player in world (update the player in world)
+        worldWithPlayer = world { player = updatedPlayer }
+
+        updatedNumbers = updateDamageNumbers dt (damageNumbers world)
+
+        -- Updates the numbers in the world 
+        worldWithNumbers = worldWithPlayer
+            { damageNumbers = updatedNumbers }
+
+    -- Update mobs using the new player position
+    in moveMobs dt worldWithNumbers
