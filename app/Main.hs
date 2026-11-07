@@ -65,10 +65,26 @@ tooClose :: (Float, Float) -> (Float, Float) -> Bool
 tooClose (x1, y1) (x2, y2) =
     (x2 - x1)^2 + (y2 - y1)^2 < 80^2
 
+enemySprites :: [String]
+enemySprites =
+    [ "monster_1", "monster_2", "monster_3"
+    , "vampire_1", "vampire_2", "vampire_3"
+    , "werewolf_1", "werewolf_2", "werewolf_3"
+    ]
+
+-- Spawns n mobs in a zone, each with a random enemy sprite
 spawnZoneMobs :: Int -> Zone -> IO [Mob]
 spawnZoneMobs n zone = do
     positions <- randomMobPositionsIn zone n []
-    return (map (\pos -> initialMob { mobPosition = pos, mobZone = zone }) positions)
+    mapM makeMob positions
+  where
+    makeMob pos = do
+        k <- randomRIO (0, length enemySprites - 1)
+        return initialMob
+            { mobPosition = pos
+            , mobZone     = zone
+            , mobSprite   = enemySprites !! k
+            }
 
 main :: IO ()
 main = do

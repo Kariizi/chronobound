@@ -41,33 +41,22 @@ drawWorld sprites world =
                 else Blank
 
         -- Draw all mobs
-        mobPictures = map drawMob (mobs world)
+        mobPictures = map (drawMob sprites) (mobs world)
 
         -- Draw floating damage numbers
         damagePictures = map drawDamageNumber (damageNumbers world)
 
-        -- Zone divider lines
-        dividers = color (greyN 0.7) $ pictures
-            [ line [(-worldHalfWidth, 0), (worldHalfWidth, 0)]
-            , line [(0, -worldHalfHeight), (0, worldHalfHeight)]
-            ]
-
-    -- Dividers at the back, damage numbers on top
-    in pictures ([dividers] ++ mobPictures ++ [playerPicture, attackPicture] ++ damagePictures)
+    -- Mobs at the back, damage numbers on top
+    in pictures (mobPictures ++ [playerPicture, attackPicture] ++ damagePictures)
 
 
 -- Draw individual mob
-drawMob :: Mob -> Picture
-drawMob mob =
-    let
-        (x, y) = mobPosition mob
-        zoneColour = case mobZone mob of
-            TopLeft     -> red
-            TopRight    -> orange
-            BottomLeft  -> magenta
-            BottomRight -> blue
-
-    in translate x y (color zoneColour (circleSolid (mobRadius mob)))
+drawMob :: M.Map String Art -> Mob -> Picture
+drawMob sprites mob =
+    let (x, y) = mobPosition mob
+        art    = sprites M.! mobSprite mob
+        s      = 2
+    in translate x y (scale s s (artPic art))
 
 -- Draw a floating damage number
 drawDamageNumber :: DamageNumber -> Picture
