@@ -192,11 +192,26 @@ respawnIfCleared world =
                             then map (strengthenMob nextWave) newWave
                             else newWave
 
-                in world
-                    { mobs = toughenedWave
-                    , rng = newGenerator
-                    , victoriaWave = nextWave
-                    }
+                    clearedWave = victoriaWave world
+
+                    -- Every few Victoria waves, let the player pick an upgrade
+                    earnedUpgrade = inVictoria && clearedWave `mod` wavesPerUpgrade == 0
+
+                    worldWithWave = world
+                        { mobs = toughenedWave
+                        , rng = newGenerator
+                        , victoriaWave = nextWave
+                        , waveClearedTimer = waveClearedDuration
+                        }
+
+                in
+                    if earnedUpgrade
+                        then worldWithWave
+                            { gameState = ChoosingUpgrade
+                            , upgradeChoices = victoriaUpgradeSelection
+                            , heldKeys = []
+                            }
+                        else worldWithWave
 
             else world
 

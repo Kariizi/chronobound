@@ -273,7 +273,7 @@ applyHellUpgrade upgrade world =
                 }
 
 
--- Choose an upgrade and move to the next Hell layer
+-- Choose an upgrade (in Hell this also moves to the next layer)
 chooseUpgrade :: Int -> World -> World
 chooseUpgrade choice world =
     let
@@ -298,6 +298,13 @@ chooseUpgrade choice world =
                 -- Apply the selected upgrade
                 upgradedWorld = applyHellUpgrade selectedUpgrade world
 
+                -- Upgrades earned in Victoria just go back to the fight
+                victoriaWorld = upgradedWorld
+                    { gameState = Playing
+                    , upgradeChoices = []
+                    , heldKeys = []
+                    }
+
                 -- Move to the next Hell layer
                 nextLayer = hellLayer upgradedWorld + 1
 
@@ -309,8 +316,10 @@ chooseUpgrade choice world =
                     , heldKeys = []
                     }
 
-            -- Enter the next Hell layer
-            in enterLevel HellLevel updatedWorld
+            in
+                if currentLevel world == VictoriaLevel
+                    then victoriaWorld
+                    else enterLevel HellLevel updatedWorld
 
 
 -- FOR HELL: CHECKS IF YOU WIN OR LOSE
@@ -465,4 +474,5 @@ updatePlayingWorld walkable dt world =
         { worldTime = worldTime world + dt
         , victoriaTime = timeInVictoria
         , rewindEffectTimer = max 0 (rewindEffectTimer worldWithTrialResult - dt)
+        , waveClearedTimer = max 0 (waveClearedTimer worldWithTrialResult - dt)
         }

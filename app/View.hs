@@ -207,7 +207,32 @@ drawHUD world =
                 then drawWaveInfo world
                 else Blank
 
-    in pictures [drawRewindFlash world, timeHUD, waveHUD, hellHUD]
+    in pictures [drawRewindFlash world, timeHUD, waveHUD, hellHUD, drawWaveCleared world]
+
+
+-- "WAVE CLEARED" message that fades out after a wave is beaten
+drawWaveCleared :: World -> Picture
+drawWaveCleared world =
+    let
+        timeLeft = waveClearedTimer world
+        alpha = min 1 (timeLeft / 0.5)
+        title =
+            if currentLevel world == VictoriaLevel
+                then "WAVE " ++ show (victoriaWave world - 1) ++ " CLEARED"
+                else "WAVE CLEARED"
+        subtitle =
+            if currentLevel world == VictoriaLevel
+                then "The next wave is stronger..."
+                else "More are coming..."
+    in
+        if timeLeft <= 0
+            then Blank
+            else translate 0 150
+                (pictures
+                    [ translate 2 (-2) (centredText 0.3 (makeColor 0.2 0.1 0.05 alpha) title)
+                    , centredText 0.3 (makeColor 1 0.8 0.3 alpha) title
+                    , translate 0 (-35) (centredText 0.11 (makeColor 0.8 0.78 0.85 alpha) subtitle)
+                    ])
 
 -- Shows which Victoria wave the player is on and how fast their time is draining
 drawWaveInfo :: World -> Picture
@@ -572,6 +597,11 @@ drawUpgradeScreen world
             choices = upgradeChoices world
             count = length choices
 
+            blessingText =
+                if currentLevel world == VictoriaLevel
+                    then "The Clock rewards your hunt..."
+                    else "Death grants you one blessing..."
+
             -- Space between card centres
             cardSpacing = 240
 
@@ -592,7 +622,7 @@ drawUpgradeScreen world
 
               -- Title
             , translate 0 190 (centredText 0.3 ivory "CHOOSE AN UPGRADE")
-            , translate 0 150 (centredText 0.11 (makeColor 0.7 0.65 0.6 1) "Death grants you one blessing...")
+            , translate 0 150 (centredText 0.11 (makeColor 0.7 0.65 0.6 1) blessingText)
             ]
             ++ cards ++
             [ -- How to choose

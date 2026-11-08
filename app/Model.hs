@@ -35,6 +35,7 @@ data World = World
     -- Victoria wave get harder based on waves cleared and time
     , victoriaWave :: Int
     , victoriaTime :: Float
+    , waveClearedTimer :: Float
     } deriving (Show, Eq)
 
 -- Storing information about the player
@@ -370,7 +371,24 @@ initialWorld =
         -- Start on the first wave with no time spent in Victoria
         , victoriaWave = 1
         , victoriaTime = 0
+        , waveClearedTimer = 0
         }
+
+-- How long the "WAVE CLEARED" message stays on screen (seconds)
+waveClearedDuration :: Float
+waveClearedDuration = 2
+
+-- Victoria gives an upgrade after every this many cleared waves
+wavesPerUpgrade :: Int
+wavesPerUpgrade = 3
+
+-- Upgrades offered in Victoria (no Hell time, because it only works in Hell)
+victoriaUpgradeSelection :: [Upgrade]
+victoriaUpgradeSelection =
+    [ HealthUpgrade 20
+    , DamageUpgrade 1
+    , SpeedUpgrade 30
+    ]
 
 -- Every this many seconds spent in Victoria, time drains 1 second faster
 drainIncreaseInterval :: Float
