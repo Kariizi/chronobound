@@ -288,7 +288,7 @@ meleeAttackDistance :: Float
 meleeAttackDistance = 40
 
 meleeHitRadius :: Float
-meleeHitRadius = 35
+meleeHitRadius = 45
 
 rewindCooldown :: Float
 rewindCooldown = 5.0

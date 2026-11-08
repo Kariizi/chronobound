@@ -46,9 +46,9 @@ isMobInRange p mob =
         -- Squared distance from attack centre to mob 
         distanceSquared = (attackX - mx)^2 + (attackY - my)^2 
 
-        -- Distance mov can be for it to be hit (units from centre)
-        -- Square to get squared for comparison  
-        hitRadius = meleeHitRadius
+        -- How far the mob's centre can be from the swing and still get hit
+        -- Adding the mob's radius means touching any part of its body counts
+        hitRadius = meleeHitRadius + mobRadius mob
 
     -- Checks if the distance from mob and centre is less than meaning its inside attack 
     in distanceSquared <= hitRadius * hitRadius 
@@ -101,7 +101,10 @@ performMeleeAttackMob world =
                 else currentHellKills
 
         -- For healing
-        timePerKill = 10
+        timePerKill =
+            if currentLevel world == LimboLevel
+                then 15
+                else 10
         timeGained = timePerKill * kills 
         -- Health SHOULDNT increase for hell
         newHealth = 
