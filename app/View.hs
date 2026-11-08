@@ -4,6 +4,7 @@ module View where
 import Graphics.Gloss
 import Model
 import Combat (isAttacking)
+import Player (isDashing)
 import qualified Data.Map.Strict as M
 import MapArt
 import Data.Fixed (mod')
@@ -21,12 +22,47 @@ drawWorld sprites world =
         -- Player facing direction
         (fx, fy) = facingDirection p
 
-        -- Draw player using breathing animation, flipped to face left or right
+        -- Draw player using the animation matching their current action
         playerPicture =
             let
-                -- Retrieves current animation frame based on game time
-                art = frameAt (sprites M.! "player_breathe") (worldTime world)
+                -- Determine which animation the player should use
+                animationType
+                    -- Highest priority: dashing
+                    | isDashing p = "dash"
 
+                    -- Attack animation plays throughout the attack cooldown
+                    | cooldownRemaining p > 0 = "attack"
+
+                    -- Walking when the player is moving
+                    | velocity p /= (0, 0) = "walk"
+
+                    -- Otherwise player is standing still
+                    | otherwise = "breathe"
+
+                -- Combine character name with animation type
+                animationName = "player_" ++ animationType
+
+                -- Retrieve the animation
+                animation = sprites M.! animationName
+
+                -- Calculate progress through the dash
+                dashProgress = 1 - dashTimer p / dashDuration
+
+                -- Calculate progress through the attack
+                attackProgress = 1 - cooldownRemaining p / 0.4
+
+                -- Choose whether the animation loops or plays once
+                art
+                    | animationType == "dash" =
+                        frameAtProgress animation dashProgress
+
+                    | animationType == "attack" =
+                        frameAtProgress animation attackProgress
+
+                    | otherwise =
+                        frameAt animation (worldTime world)
+
+                -- Keep existing sprite scaling and facing direction
                 s = 2
                 sx = if fx < 0 then -s else s
 
@@ -132,3 +168,22 @@ frameAt anim t = go (animFrames anim) (animDelays anim) (t `mod'` total)
 
         -- Error if no frames are available
         go _ _ _ = error "animation with no frames"
+
+-- Select a frame based on animation progress (0 = start, 1 = end)
+frameAtProgress :: Animation -> Float -> Art
+frameAtProgress anim progress =
+    let
+        -- Gets total duration of the animation
+        totalDuration = sum (animDelays anim)
+
+        -- Keep progress between 0 and 1
+        safeProgress = max 0 (min 1 progress)
+
+        -- Convert progress into animation time = gets the frame we are at
+        -- Multiplying percentage of frame we are at by total duration
+        animationTime = safeProgress * totalDuration
+
+    -- Show the last frame when finished, otherwise select the current frame
+    in if safeProgress >= 1
+        then last (animFrames anim)
+        else frameAt anim animationTime
