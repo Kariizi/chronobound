@@ -132,6 +132,7 @@ mobAttacks dt world =
                 , damageAmount = dmg
                 , damageLifetime = 0.5
                 , damageHitsPlayer = True
+                , gainedHP = False
                 }
             | (_, dmg) <- results, dmg > 0
             ]
