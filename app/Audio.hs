@@ -29,9 +29,9 @@ trackFor world =
 trackForLevel :: Level -> Track
 trackForLevel level =
     case level of
-        VictoriaLevel -> MenuTheme
-        LimboLevel    -> LimboTheme
-        HellLevel     -> HellTheme
+        VictoriaLevel -> LimboTheme
+        LimboLevel    -> HellTheme
+        HellLevel     -> MenuTheme
 
 -- The loaded mp3s, kept together so they are only loaded once
 data Music = Music
@@ -70,7 +70,7 @@ musicVolume = 0.4
 -- Returns Nothing if there is no audio device, so the game still runs without sound
 setupMusic :: FilePath -> IO (Maybe (Music, MusicPlayer))
 setupMusic folder = do
-    audioStarted <- initAudio 64 44100 1024
+    audioStarted <- initAudio 64 48000 1024
 
     if not audioStarted
         then do
