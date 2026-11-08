@@ -160,6 +160,10 @@ lineMargin = 30
 playerRadius :: Float
 playerRadius = 20
 
+otherZoneSpeedFactor :: Float
+otherZoneSpeedFactor = 0.25
+
+
 data Zone = TopLeft | TopRight | BottomLeft | BottomRight
     deriving (Show, Eq, Enum, Bounded)
 
