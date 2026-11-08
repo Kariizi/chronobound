@@ -11,6 +11,7 @@ module MapArt
     loadArtSet,
     Animation (..),
     loadAnimationSet,
+    loadPortrait,
     toGloss,
     blit,
     polygonAt,
@@ -78,7 +79,21 @@ loadAnimationSet shrink folder names =
   M.fromList . zip names <$> mapM (\n -> loadAnimation shrink (folder ++ "/" ++ n ++ ".gif")) names
 
 loadAnimation :: Int -> FilePath -> IO Animation
-loadAnimation shrink path = do
+loadAnimation shrink = loadAnimationWith (clearBackground . shrinkBy shrink)
+
+-- Loads only part of an animated sprite (e.g. a character's head for a dialog portrait).
+-- (x, y, width, height) is measured on the sprite after shrinking (use shrink 1 for full size).
+loadPortrait :: Int -> (Int, Int, Int, Int) -> FilePath -> IO Animation
+loadPortrait shrink (x, y, w, h) =
+  loadAnimationWith (clearBackground . cropImage x y w h . shrinkBy shrink)
+
+-- Cuts a w x h rectangle out of an image, starting at (x, y) from the top-left
+cropImage :: Int -> Int -> Int -> Int -> Image PixelRGBA8 -> Image PixelRGBA8
+cropImage x y w h img = generateImage (\i j -> pixelAt img (x + i) (y + j)) w h
+
+-- Loads every frame of a GIF, changing each frame with the given function
+loadAnimationWith :: (Image PixelRGBA8 -> Image PixelRGBA8) -> FilePath -> IO Animation
+loadAnimationWith changeFrame path = do
   bytes <- B.readFile path
   case (decodeGifImages bytes, getDelaysGifImages bytes) of
     (Left err, _) -> ioError (userError ("could not load " ++ path ++ ": " ++ err))
@@ -86,7 +101,7 @@ loadAnimation shrink path = do
     (Right images, Right delays) ->
       pure
         Animation
-          { animFrames = map (artFromImage . clearBackground . shrinkBy shrink . convertRGBA8) images,
+          { animFrames = map (artFromImage . changeFrame . convertRGBA8) images,
             -- GIF delays are in hundredths of a second; 0 means "as fast as possible", so use 0.1s
             animDelays = map (\cs -> if cs <= 0 then 0.1 else fromIntegral cs / 100) delays
           }

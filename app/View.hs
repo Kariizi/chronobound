@@ -844,3 +844,71 @@ frameAtProgress anim progress =
     in if safeProgress >= 1
         then last (animFrames anim)
         else frameAt anim animationTime
+
+-- BOSS DIALOG:
+
+-- The Clockmaker's intro: his head on the left, his words typing out on the right
+drawBossDialog :: Animation -> World -> Picture
+drawBossDialog portrait world
+    | gameState world == BossDialog =
+        let
+            index = dialogIndex world
+            (topLine, bottomLine) = bossDialogLines !! index
+
+            -- How many letters have been typed so far
+            typed = floor (dialogTimer world * dialogCharsPerSecond)
+            shownTop = take typed topLine
+            shownBottom = take (typed - length topLine) bottomLine
+            finishedTyping = typed >= dialogLineLength index
+
+            gold = makeColor 1 0.8 0.3 1
+            pale = makeColor 0.9 0.88 0.94 1
+            grey = makeColor 0.56 0.53 0.61 1
+
+            -- Box along the bottom of the screen
+            boxW = windowWidth - 32
+            boxH = 150
+            boxY = -worldHalfHeight + 16 + boxH / 2
+            boxLeft = -boxW / 2
+
+            box = translate 0 boxY (pictures
+                [ color (makeColor 0.3 0.25 0.3 1) (rectangleSolid (boxW + 4) (boxH + 4))
+                , color (makeColor 0.12 0.1 0.14 0.96) (rectangleSolid boxW boxH)
+                ])
+
+            -- Head in a gold frame on the left
+            portraitX = boxLeft + 24 + 56
+            art = frameAt portrait (worldTime world)
+            portraitPic = translate portraitX boxY (pictures
+                [ color gold (rectangleSolid 116 116)
+                , color (makeColor 0.08 0.05 0.06 1) (rectangleSolid 112 112)
+                , artPic art
+                ])
+
+            -- Text starts to the right of the portrait
+            textX = portraitX + 56 + 24
+            boxTop = boxY + boxH / 2
+
+            -- Gloss text is very thin, so draw it twice, 1 pixel apart, to thicken it
+            boldText size colour str = pictures
+                [ translate dx 0 (scale size size (color colour (Text str))) | dx <- [0, 1] ]
+
+            name = translate textX (boxTop - 34) (boldText 0.13 gold "THE CLOCKMAKER")
+            line1 = translate textX (boxTop - 70) (boldText 0.15 pale shownTop)
+            line2 = translate textX (boxTop - 100) (boldText 0.15 pale shownBottom)
+
+            -- "1 / 4" in the corner
+            counter = translate textX (boxY - boxH / 2 + 16)
+                (scale 0.09 0.09 (color grey (Text (show (index + 1) ++ " / " ++ show (length bossDialogLines)))))
+
+            -- Pulsing hint, only once the line has finished typing
+            pulse = (sin (worldTime world * 4) + 1) / 2
+            hint =
+                if finishedTyping
+                    then translate (boxW / 2 - 130) (boxY - boxH / 2 + 16)
+                        (scale 0.09 0.09 (color (makeColor 1 1 1 (0.4 + 0.6 * pulse)) (Text "PRESS ENTER >")))
+                    else Blank
+
+        in pictures [box, portraitPic, name, line1, line2, counter, hint]
+
+    | otherwise = Blank

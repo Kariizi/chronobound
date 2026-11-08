@@ -128,6 +128,14 @@ walkableFor ms LimboLevel    = let m = limboMap ms in walkableOn (Limbo.startVie
 -- Takes the starting world so Enter can restart the game after Game Over
 handleLevelInput :: World -> Event -> World -> World
 
+-- Boss intro: Enter or Space finishes / skips the line
+handleLevelInput _ event world
+    | gameState world == BossDialog =
+        case event of
+            EventKey (SpecialKey KeyEnter) Down _ _ -> skipDialog world
+            EventKey (SpecialKey KeySpace) Down _ _ -> skipDialog world
+            _ -> world
+
 -- Handle upgrade selection
 handleLevelInput _ event world
     | gameState world == ChoosingUpgrade =
@@ -261,6 +269,10 @@ main = do
     -- Loads animated GIF sprites instead of static PNGs
     sprites <- loadAnimationSet 8 "app/assets/spriteanimated" animationNames
 
+    -- Just the Clockmaker's head, for the dialog box
+    -- Cropped from the full-size GIF (not shrunk) so it stays sharp
+    bossPortrait <- loadPortrait 1 (90, 10, 104, 104) "app/assets/spriteanimated/boss_breathe.gif"
+
     -- Start audio and load the background music (Nothing if there is no audio device)
     audio <- setupMusic "app/assets/music"
 
@@ -288,6 +300,9 @@ main = do
 
                   -- Draw HUD without camera translation
                 , drawHUD world
+
+                  -- Clockmaker's intro dialog before the boss fight
+                , drawBossDialog bossPortrait world
 
                   -- Game Over overlay goes last so it covers everything
                 , drawGameOver world

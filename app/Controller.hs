@@ -316,10 +316,20 @@ chooseUpgrade choice world =
                     , heldKeys = []
                     }
 
+                -- Entering the boss layer starts the Clockmaker's intro first
+                hellWorld = enterLevel HellLevel updatedWorld
+                bossIntroWorld = hellWorld
+                    { gameState = BossDialog
+                    , dialogIndex = 0
+                    , dialogTimer = 0
+                    }
+
             in
                 if currentLevel world == VictoriaLevel
                     then victoriaWorld
-                    else enterLevel HellLevel updatedWorld
+                else if nextLayer == finalHellLayer
+                    then bossIntroWorld
+                    else hellWorld
 
 
 -- FOR HELL: CHECKS IF YOU WIN OR LOSE
@@ -362,6 +372,9 @@ updateWorld walkable dt world
     | gameState world == Menu || gameState world == Paused =
         world { worldTime = worldTime world + dt }
     
+    -- The boss intro types itself out while everything else stays frozen
+    | gameState world == BossDialog = updateDialog dt world
+
     -- Return world with no updates
     | gameState world /= Playing = world
     | otherwise = updatePlayingWorld walkable dt world
@@ -476,3 +489,42 @@ updatePlayingWorld walkable dt world =
         , rewindEffectTimer = max 0 (rewindEffectTimer worldWithTrialResult - dt)
         , waveClearedTimer = max 0 (waveClearedTimer worldWithTrialResult - dt)
         }
+
+-- BOSS DIALOG:
+
+-- Type out the current line, then move on by itself after a short pause
+updateDialog :: Float -> World -> World
+updateDialog dt world =
+    let
+        newTimer = dialogTimer world + dt
+        lineFinishedAndRead =
+            newTimer >= dialogTypeTime (dialogIndex world) + dialogHoldTime
+        tickedWorld = world
+            { dialogTimer = newTimer
+            -- Keep the clock going so the portrait breathes and the hint pulses
+            , worldTime = worldTime world + dt
+            }
+    in
+        if lineFinishedAndRead
+            then nextDialogLine tickedWorld
+            else tickedWorld
+
+-- Go to the next line, or start the fight after the last one
+nextDialogLine :: World -> World
+nextDialogLine world =
+    let
+        nextIndex = dialogIndex world + 1
+    in
+        if nextIndex >= length bossDialogLines
+            then world { gameState = Playing, dialogIndex = 0, dialogTimer = 0, heldKeys = [] }
+            else world { dialogIndex = nextIndex, dialogTimer = 0 }
+
+-- Enter: finish the line instantly if it's still typing, otherwise skip to the next one
+skipDialog :: World -> World
+skipDialog world =
+    let
+        typeTime = dialogTypeTime (dialogIndex world)
+    in
+        if dialogTimer world < typeTime
+            then world { dialogTimer = typeTime }
+            else nextDialogLine world
