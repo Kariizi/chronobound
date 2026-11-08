@@ -109,7 +109,13 @@ drawMob sprites time p mob =
 
         -- Determine which animation the mob should use
         animationType
-            -- Highest priority: just hit the player
+            -- Charging at the player
+            | isLunging = "dash"
+
+            -- Holding still while the warning shows
+            | isWindingUp = "breathe"
+
+            -- Just finished an attack
             | mobAttackCooldown mob > 0 && timeSinceHit < mobAttackAnimDuration = "attack"
 
             -- Moving towards the player
@@ -117,6 +123,28 @@ drawMob sprites time p mob =
 
             -- Otherwise idle
             | otherwise = "breathe"
+
+        isLunging = case mobAction mob of
+            Lunging _ _ -> True
+            _           -> False
+
+        isWindingUp = case mobAction mob of
+            WindingUp _ -> True
+            _           -> False
+
+        -- Red warning while winding up: a ring that closes in and brightens until the lunge
+        warning = case mobAction mob of
+            WindingUp timeLeft ->
+                let
+                    progress = 1 - timeLeft / mobWindupTime
+                    ringRadius = mobRadius mob + 6 + 22 * (1 - progress)
+                in pictures
+                    [ color (makeColor 1 0.15 0.1 (0.15 + 0.25 * progress))
+                        (circleSolid (mobRadius mob + 6))
+                    , color (makeColor 1 0.2 0.15 (0.5 + 0.5 * progress))
+                        (thickCircle ringRadius 3)
+                    ]
+            _ -> Blank
 
         -- Combine character name with animation type
         animation = sprites M.! (mobSprite mob ++ "_" ++ animationType)
@@ -133,7 +161,8 @@ drawMob sprites time p mob =
         s = 2
         sx = if px < x then -s else s
 
-    in translate x y (scale sx s (artPic art))
+    -- Warning drawn first so it sits under the sprite
+    in translate x y (pictures [warning, scale sx s (artPic art)])
 
 
 -- Draw a floating damage number
@@ -604,20 +633,20 @@ drawRewindPreview world =
                 (x, y) = snapshotPosition (last history)
 
                 t = worldTime world
-                cyan alpha = makeColor 0.4 0.85 1 alpha
+                rewindCyan alpha = makeColor 0.4 0.85 1 alpha
 
                 -- Gently pulse the ring's size and glow
                 pulse = (sin (t * 4) + 1) / 2
                 radius = 22 + 2 * pulse
 
                 -- Faint clock face
-                face = color (cyan (0.12 + 0.08 * pulse)) (circleSolid radius)
-                ring = color (cyan (0.7 + 0.3 * pulse)) (thickCircle radius 3)
+                face = color (rewindCyan (0.12 + 0.08 * pulse)) (circleSolid radius)
+                ring = color (rewindCyan (0.7 + 0.3 * pulse)) (thickCircle radius 3)
 
                 -- 12 small tick marks around the edge
                 ticks = pictures
                     [ rotate (fromIntegral i * 30)
-                        (color (cyan 0.8) (line [(0, radius - 6), (0, radius - 2)]))
+                        (color (rewindCyan 0.8) (line [(0, radius - 6), (0, radius - 2)]))
                     | i <- [0 .. 11 :: Int]
                     ]
 
@@ -648,7 +677,7 @@ drawRewindEffect world
             (fromX, fromY) = rewindFrom world
             (toX, toY) = position (player world)
 
-            cyan alpha = makeColor 0.4 0.85 1 alpha
+            rewindCyan alpha = makeColor 0.4 0.85 1 alpha
 
             -- Streak: a band from the old position to the new one that thins and fades
             dx = toX - fromX
@@ -657,7 +686,7 @@ drawRewindEffect world
             -- Unit vector at right angles to the streak, scaled to half its width
             halfWidth = 10 * fade
             (nx, ny) = (-dy / len * halfWidth, dx / len * halfWidth)
-            streak = color (cyan (0.35 * fade))
+            streak = color (rewindCyan (0.35 * fade))
                 (polygon
                     [ (fromX + nx, fromY + ny)
                     , (toX + nx, toY + ny)
@@ -670,16 +699,16 @@ drawRewindEffect world
             -- Afterimages left along the path
             afterimages = pictures
                 [ translate (fromX + dx * k) (fromY + dy * k)
-                    (color (cyan (0.4 * fade * (1 - k))) (circleSolid (14 * fade + 2)))
+                    (color (rewindCyan (0.4 * fade * (1 - k))) (circleSolid (14 * fade + 2)))
                 | k <- [0, 0.25, 0.5, 0.75]
                 ]
 
             -- Two rings bursting outwards from the landing spot, the second slightly behind
-            ringAt delay =
+            burstRing delay =
                 let local = max 0 ((progress - delay) / (1 - delay))
-                in color (cyan (0.9 * (1 - local)))
+                in color (rewindCyan (0.9 * (1 - local)))
                     (thickCircle (18 + 70 * local) (5 * (1 - local) + 1))
-            rings = translate toX toY (pictures [ringAt 0, ringAt 0.3])
+            rings = translate toX toY (pictures [burstRing 0, burstRing 0.3])
 
         in pictures [streak, afterimages, streakCore, rings]
 
