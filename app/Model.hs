@@ -4,6 +4,7 @@
 -- Players or Mobs, etc
 
 module Model where
+import Data.List (sortOn)
 
 -- Storing the game world:
 data World = World
@@ -136,6 +137,44 @@ lineMargin = 30
 playerRadius :: Float
 playerRadius = 20
 
+-- Can something stand at this position?
+type Walkable = (Float, Float) -> Bool
+
+-- Try the full move, then slide along x, then along y, otherwise stay put
+-- Try the full move. If blocked, slide along a wall (the map's diagonal walls,
+-- or straight x / y). If nothing works, get as close to the wall as possible.
+resolveMove :: Walkable -> (Float, Float) -> (Float, Float) -> (Float, Float)
+resolveMove ok (ox, oy) (nx, ny)
+    | ok (nx, ny) = (nx, ny)
+    | otherwise   = case filter ok slides of
+        (p : _) -> p
+        []      -> closest 0 1 (8 :: Int)
+  where
+    dx = nx - ox
+    dy = ny - oy
+
+    -- Wall directions: the diagonals of the tiles (2 across, 1 up) and x / y
+    wallDirs = [(2, 1), (2, -1), (1, 0), (0, 1)]
+
+    -- The part of the move that runs along a wall
+    slide (wx, wy) =
+        let n        = sqrt (wx * wx + wy * wy)
+            (ux, uy) = (wx / n, wy / n)
+            d        = dx * ux + dy * uy
+        in (ox + ux * d, oy + uy * d)
+
+    -- Try the slide that keeps the most movement first
+    moved (x, y) = (x - ox) ^ 2 + (y - oy) ^ 2
+    slides = sortOn (negate . moved) [ s | s <- map slide wallDirs, moved s > 0.0001 ]
+
+    -- Move part of the way, as far as is still walkable
+    closest lo hi 0 = lerp lo
+    closest lo hi k =
+        let mid = (lo + hi) / 2
+        in if ok (lerp mid) then closest mid hi (k - 1) else closest lo mid (k - 1)
+    lerp t = (ox + dx * t, oy + dy * t)
+
+    
 otherZoneSpeedFactor :: Float
 otherZoneSpeedFactor = 0.25
 

@@ -14,6 +14,7 @@ module Hell
     drawHell,
     startView,
     clampView,
+    hellBlocked,
   )
 where
 
@@ -237,3 +238,30 @@ drawHell h view@(viewW, viewH) (camX, camY) =
               Building _ -> [blit view a (x - 16) (y + 16 - artH a)]
               _ -> [blit view a (x - artW a / 2) (y + 8 + fromIntegral below - artH a)]
       _ -> []
+
+-- True if a map point can't be walked on: empty air, lava, or under a building
+hellBlocked :: Hell -> (Float, Float) -> Bool
+hellBlocked h (mx, my) =
+  case tileAt h (floor i, floor j) of
+    Void        -> True
+    Tile Lava _ -> True
+    _           -> any covers nearby
+  where
+    i = (mx / 16 + my / 8) / 2
+    j = (my / 8 - mx / 16) / 2
+    nearby = [ (a, b) | a <- [floor i - 2 .. floor i + 8]
+                      , b <- [floor j - 2 .. floor j + 8] ]
+    covers t = case tileAt h t of
+      Tile _ (Just (Building style)) ->
+        let -- use the plain building (no spire) so spires don't block
+            name = case style of
+              Charred  -> "house_charred"
+              Bone     -> "house_bone"
+              Obsidian -> "house_obsidian"
+            a        = hArt h M.! name
+            (hx, hy) = tileTop t
+            dx       = abs (mx - hx)
+            top      = hy + 16 - artH a + dx / 2
+            bottom   = hy + 16 - dx / 2
+         in dx <= 16 && my >= top && my <= bottom
+      _ -> False

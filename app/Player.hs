@@ -200,3 +200,9 @@ drainTime dt p =
         newHealth = max 0 (health p - secondsPassed)
         
     in p { health = newHealth, timeDrainAccumulator = remainingTime }
+
+
+-- Keep a player's new position only where it is walkable
+keepWalkable :: Walkable -> Player -> Player -> Player
+keepWalkable ok before after =
+    after { position = resolveMove ok (position before) (position after) }

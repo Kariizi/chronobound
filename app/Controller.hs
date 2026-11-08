@@ -130,8 +130,8 @@ updateDamageNumbers dt numbers =
 
 
 -- Update the game world every frame
-updateWorld :: Float -> World -> World
-updateWorld dt world =
+updateWorld :: Walkable -> Float -> World -> World
+updateWorld walkable dt world =
     let
         p = player world
         keys = heldKeys world
@@ -152,11 +152,13 @@ updateWorld dt world =
             , facingDirection = newFacing
             }
 
-        -- Move normally or dash
-        movedPlayer =
+               -- Move normally or dash, then stop at walls
+        rawMovedPlayer =
             if isDashing movingPlayer
                 then dashMovement dt movingPlayer
                 else movePlayer dt movingPlayer
+
+        movedPlayer = keepWalkable walkable movingPlayer rawMovedPlayer
 
         -- Update attack and dash timers
         attackUpdatedPlayer = updateAttack dt movedPlayer
@@ -173,7 +175,7 @@ updateWorld dt world =
         worldWithNumbers = worldWithPlayer
             { damageNumbers = updatedNumbers }
 
-        worldWithMobs = mobAttacks dt (moveMobs dt worldWithNumbers)
+        worldWithMobs = mobAttacks dt (moveMobs walkable dt worldWithNumbers)
 
         -- Update world with snapshots 
         worldWithSnapshot = recordPlayerSnapshot dt worldWithMobs

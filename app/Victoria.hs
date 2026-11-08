@@ -13,6 +13,7 @@ module Victoria
     drawVictoria,
     startView,
     clampView,
+    houseCovers,
  )
 
 where
@@ -221,3 +222,29 @@ drawVictoria v view@(viewW, viewH) (camX, camY) =
               House _ -> [blit view a (x - 16) (y + 16 - artH a)] -- footprint fills the tile
               _ -> [blit view a (x - artW a / 2) (y + 8 + fromIntegral below - artH a)] -- stands on the tile's centre
       _ -> []
+
+
+-- True if a map point lies on a house tile or under the drawn house picture
+houseCovers :: Victoria -> (Float, Float) -> Bool
+houseCovers v (mx, my) = any covers nearby
+  where
+    i = (mx / 16 + my / 8) / 2
+    j = (my / 8 - mx / 16) / 2
+    -- house pictures stretch upwards, so the house is at or below the point
+    nearby = [ (a, b) | a <- [floor i - 2 .. floor i + 8]
+                      , b <- [floor j - 2 .. floor j + 8] ]
+    covers t = case tileAt v t of
+      Tile _ (Just (House style)) ->
+        let -- use the plain house (no chimney) so chimneys don't block
+            name = case style of
+              RedBrick -> "house_red"
+              Stucco   -> "house_stucco"
+              Soot     -> "house_soot"
+            a        = vArt v M.! name
+            (hx, hy) = tileTop t
+            dx       = abs (mx - hx)
+            -- diamond-shaped roof on top, diamond-shaped footprint at the bottom
+            top      = hy + 16 - artH a + dx / 2
+            bottom   = hy + 16 - dx / 2
+         in dx <= 16 && my >= top && my <= bottom
+      _ -> False
