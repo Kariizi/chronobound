@@ -60,6 +60,7 @@ createDamageNumber damage mob =
         , damageAmount = damage 
         , damageLifetime = 0.5
         , damageHitsPlayer = False 
+        , gainedHP = False
         }
 
 -- Mob Take Damage 
@@ -88,6 +89,32 @@ performMeleeAttackMob world =
 
         -- Takes mob and checks if it returns true for conditon 
         aliveMobs = filter (\mob -> mobHealth mob >0) updatedMobs
+
+        -- Get number of dead mobs
+        kills = length(updatedMobs) - length(aliveMobs)
+
+        timePerKill = 10
+        timeGained = timePerKill * kills 
+
+        newHealth = min (maxHealth p) (health p + timeGained)
+
+        updatedPlayer = p {health = newHealth}
+
+        -- Green +N above the player for time actually gained (0 if already at max)
+        actualGain = newHealth - health p
+        (px, py) = position p
+        gainNumbers =
+            [ DamageNumber
+                { damagePosition = (px, py + 30)
+                , damageAmount = actualGain
+                , damageLifetime = 0.8
+                , damageHitsPlayer = False
+                , gainedHP = True
+                }
+            | actualGain > 0
+            ]
         
 
-    in world { mobs = aliveMobs , damageNumbers = allDamageNumbers }
+    in world { mobs = aliveMobs , damageNumbers = allDamageNumbers ++ gainNumbers, player = updatedPlayer }
+
+-- Attacking Mob = Health Gain

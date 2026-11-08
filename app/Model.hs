@@ -6,6 +6,8 @@
 module Model where
 import Data.List (sortOn)
 
+import System.Random (StdGen, mkStdGen)
+
 -- Storing the game world:
 data World = World
     { player :: Player
@@ -15,6 +17,13 @@ data World = World
     , damageNumbers :: [DamageNumber]
     , playerHistory :: [PlayerSnapshot]
     , worldTime :: Float
+    , currentLevel :: Level
+    -- For hell level:
+    , hellTimeRemaining :: Float
+    , hellKills :: Int 
+    , gameState :: GameState
+    -- For generating Mobs
+    , rng :: StdGen
     } deriving (Show, Eq)
 
 -- Storing information about the player
@@ -74,6 +83,19 @@ data Mob = Mob
     , mobAttackInterval :: Float
     } deriving (Show, Eq)
 
+-- Different dimensions
+data Level 
+    = VictoriaLevel
+    | LimboLevel
+    | HellLevel
+    deriving (Show, Eq)
+
+-- Stores gameState:
+data GameState 
+    = Playing
+    | GameOver
+    deriving (Show, Eq)
+
 initialMob :: Mob
 initialMob =
     Mob
@@ -85,7 +107,7 @@ initialMob =
         , mobRadius = 15.0
         , mobAttackRange = 5.0
         , mobZone = TopRight
-        , mobSprite = "monster_1"
+        , mobSprite = "skeleton"
 
         -- Animation starts with no offset
         , mobAnimOffset = 0
@@ -118,6 +140,8 @@ data DamageNumber = DamageNumber
     , damageAmount :: Int
     , damageLifetime :: Float
     , damageHitsPlayer :: Bool
+    -- True for time gained (shown as green +N)
+    , gainedHP :: Bool
     } deriving (Show, Eq)
 
 -- Window size: change these and everything else follows
@@ -243,6 +267,14 @@ meleeHitRadius = 35
 rewindCooldown :: Float
 rewindCooldown = 5.0
 
+-- Time allowed to complete Deaths Trial
+hellTrialDuration :: Float
+hellTrialDuration = 60
+
+-- Number of kills required to escape Hell
+hellRequiredKills :: Int
+hellRequiredKills = 5
+
 -- Inital Game World
 initialWorld :: World
 initialWorld =
@@ -254,4 +286,11 @@ initialWorld =
         , damageNumbers = []
         , playerHistory = []
         , worldTime = 0
+        , currentLevel = VictoriaLevel
+        -- For hell
+        , hellTimeRemaining = hellTrialDuration
+        , hellKills = 0
+        , gameState = Playing
+        -- For generating Mobs
+        , rng = mkStdGen 0
         }

@@ -2,14 +2,11 @@ import Graphics.Gloss.Interface.Pure.Game
 import Model
 import View
 import Controller
-import System.Random (randomRIO)
+import System.Random (randomRIO, newStdGen)
 import qualified Victoria
 import qualified Limbo
 import qualified Hell
 import MapArt
-
--- Which map is showing. Temporary: press 1, 2 or 3 to switch while we integrate the maps.
-data Level = VictoriaLevel | LimboLevel | HellLevel
 
 data Maps = Maps
     { victoriaMap :: Victoria.Victoria
@@ -133,11 +130,12 @@ walkableFor ms HellLevel     = let m = hellMap ms in walkableOn (Hell.startView 
 walkableFor ms LimboLevel    = let m = limboMap ms in walkableOn (Limbo.startView m) (Limbo.limboBlocked m)
 
 
-handleLevelInput :: Event -> (Level, World) -> (Level, World)
-handleLevelInput (EventKey (Char '1') Down _ _) (_, world) = (VictoriaLevel, world)
-handleLevelInput (EventKey (Char '2') Down _ _) (_, world) = (LimboLevel, world)
-handleLevelInput (EventKey (Char '3') Down _ _) (_, world) = (HellLevel, world)
-handleLevelInput event (level, world) = (level, handleInput event world)
+
+handleLevelInput :: Event -> World -> World
+handleLevelInput (EventKey (Char '1') Down _ _) world = world { currentLevel = VictoriaLevel }
+handleLevelInput (EventKey (Char '2') Down _ _) world = world { currentLevel = LimboLevel }
+handleLevelInput (EventKey (Char '3') Down _ _) world = world { currentLevel = HellLevel }
+handleLevelInput event world = handleInput event world 
 
 zoneBounds :: Zone -> (Float, Float, Float, Float)
 zoneBounds TopLeft     = (-maxX, -lineMargin,  lineMargin,  maxY)
@@ -167,18 +165,43 @@ tooClose :: (Float, Float) -> (Float, Float) -> Bool
 tooClose (x1, y1) (x2, y2) =
     (x2 - x1)^2 + (y2 - y1)^2 < 80^2
 
--- Enemy animation names used when spawning mobs
+-- Enemy character names used when spawning mobs (the animation type is added when drawing)
 enemySprites :: [String]
 enemySprites =
-    [ "bat_ghoul_breathe"
-    , "cultist_breathe"
-    , "ghost_breathe"
-    , "hooded_brute_breathe"
-    , "shadow_beast_breathe"
-    , "skeleton_breathe"
-    , "vampire_breathe"
-    , "wolf_black_breathe"
-    , "wolf_brown_breathe"
+    [ "bat_ghoul"
+    , "cultist"
+    , "ghost"
+    , "hooded_brute"
+    , "shadow_beast"
+    , "skeleton"
+    , "vampire"
+    , "wolf_black"
+    , "wolf_brown"
+    ]
+
+characters :: [String]
+characters =
+    [ "player"
+    , "player_corrupted"
+    , "boss"
+    , "bat_ghoul"
+    , "cultist"
+    , "ghost"
+    , "hooded_brute"
+    , "shadow_beast"
+    , "skeleton"
+    , "vampire"
+    , "wolf_black"
+    , "wolf_brown"
+    ]
+
+animationNames :: [String]
+animationNames =
+    [ character ++ "_" ++ action
+    -- Loops through each character in character list
+    | character <- characters
+    -- Loop through each animation type for the character
+    , action <- ["breathe", "walk", "attack", "dash"]
     ]
 
 -- Spawns n mobs in a zone, each with a random enemy sprite
@@ -195,54 +218,51 @@ spawnZoneMobs walkable n zone = do
             , mobSprite   = enemySprites !! k
             }
 
+
 main :: IO ()
 main = do
     
     
 
+    -- Load all three maps
     maps <- Maps
         <$> Victoria.loadVictoria "app/assets/victoria"
         <*> Limbo.loadLimbo "app/assets/limbo"
         <*> Hell.loadHell "app/assets/hell"
 
     startingMobs <- concat <$> mapM (spawnZoneMobs (walkableFor maps VictoriaLevel) 2) [minBound .. maxBound]
-    let startingWorld = initialWorld { mobs = startingMobs }
+    generator <- newStdGen
+    let startingWorld = initialWorld { mobs = startingMobs, rng = generator }
 
     -- Loads animated GIF sprites instead of static PNGs
-    sprites <- loadAnimationSet 8 "app/assets/spriteanimated"
-        [ "player_breathe"
-        , "player_corrupted_breathe"
-        , "boss_breathe"
-        , "bat_ghoul_breathe"
-        , "cultist_breathe"
-        , "ghost_breathe"
-        , "hooded_brute_breathe"
-        , "shadow_beast_breathe"
-        , "skeleton_breathe"
-        , "vampire_breathe"
-        , "wolf_black_breathe"
-        , "wolf_brown_breathe"
-        ]
+    sprites <- loadAnimationSet 8 "app/assets/spriteanimated" animationNames
 
     play
         (InWindow "Chronobound" (round windowWidth, round windowHeight) (100, 100))
         black
         60
-        (VictoriaLevel, startingWorld)
-        (\(level, world) ->
-        let
-            -- Retrieves player's position
-            (px, py) = position (player world)
 
-        in pictures
-            [ -- Draw map relative to player position
-            drawLevel maps level (px, py)
+        startingWorld
 
-            -- Shift game layer in opposite direction
-            , translate (-px) (-py) (drawWorld sprites world)
-                        
-            -- Draw HUD without camera translation
-            , drawHUD world
-            ])
+        -- Draw game world
+        (\world ->
+            let
+                -- Retrieves player's position
+                (px, py) = position (player world)
+
+            in pictures
+                [ -- Draw the map based on the level stored in World
+                  drawLevel maps (currentLevel world) (px, py)
+
+                  -- Shift game layer in opposite direction
+                , translate (-px) (-py) (drawWorld sprites world)
+
+                  -- Draw HUD without camera translation
+                , drawHUD world
+                ])
+
+        -- Handle movement, attacks, dash, rewind and level debug keys
         handleLevelInput
-                (\dt (level, world) -> (level, updateWorld (walkableFor maps level) dt world))
+
+        -- Update game world every frame
+               (\dt world -> updateWorld (walkableFor maps (currentLevel world)) dt world)
