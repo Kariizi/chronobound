@@ -48,11 +48,19 @@ drawLevel ms level (px, py) =
 
     in scale mapZoom mapZoom picture
 
-handleLevelInput :: Event -> World -> World
-handleLevelInput (EventKey (Char '1') Down _ _) world = world { currentLevel = VictoriaLevel }
-handleLevelInput (EventKey (Char '2') Down _ _) world = world { currentLevel = LimboLevel }
-handleLevelInput (EventKey (Char '3') Down _ _) world = world { currentLevel = HellLevel }
-handleLevelInput event world = handleInput event world 
+-- Takes the starting world so Enter can restart the game after Game Over
+handleLevelInput :: World -> Event -> World -> World
+handleLevelInput startingWorld event world
+    -- Game Over
+    | gameState world == GameOver =
+        case event of
+            EventKey (SpecialKey KeyEnter) Down _ _ -> startingWorld
+            _ -> world
+
+handleLevelInput _ (EventKey (Char '1') Down _ _) world = world { currentLevel = VictoriaLevel }
+handleLevelInput _ (EventKey (Char '2') Down _ _) world = world { currentLevel = LimboLevel }
+handleLevelInput _ (EventKey (Char '3') Down _ _) world = world { currentLevel = HellLevel }
+handleLevelInput _ event world = handleInput event world
 
 zoneBounds :: Zone -> (Float, Float, Float, Float)
 zoneBounds TopLeft     = (-maxX, -lineMargin,  lineMargin,  maxY)
@@ -183,10 +191,13 @@ main = do
 
                   -- Draw HUD without camera translation
                 , drawHUD world
+
+                  -- Game Over overlay goes last so it covers everything
+                , drawGameOver world
                 ])
 
-        -- Handle movement, attacks, dash, rewind and level debug keys
-        handleLevelInput
+        -- Handle movement, attacks, dash, rewind, level debug keys and restarting
+        (handleLevelInput startingWorld)
 
         -- Update game world every frame
         updateWorld

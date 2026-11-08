@@ -261,6 +261,23 @@ centredText size colour str =
         (scale size size (color colour (Text str)))
 
 
+-- Dark overlay with the Game Over message, drawn on top of everything
+drawGameOver :: World -> Picture
+drawGameOver world
+    | gameState world == GameOver =
+        pictures
+            [ -- Semi-transparent black over the whole window
+              color (makeColor 0 0 0 0.7) (rectangleSolid windowWidth windowHeight)
+
+              -- Large title, slightly above centre
+            , translate 0 30 (centredText 0.4 (makeColor 0.9 0.15 0.1 1) "TIME'S UP")
+
+              -- Restart hint underneath
+            , translate 0 (-40) (centredText 0.15 white "Press ENTER to restart")
+            ]
+    | otherwise = Blank
+
+
 -- Which frame of an animation to show at time t (loops forever)
 frameAt :: Animation -> Float -> Art
 frameAt anim t = go (animFrames anim) (animDelays anim) (t `mod'` total)

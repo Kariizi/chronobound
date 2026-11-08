@@ -11,6 +11,10 @@ import Spawn (spawnAllZones)
 -- Handles keyboard events
 handleInput :: Event -> World -> World
 
+-- Ignore all keyboard input after Game Over
+handleInput _ world
+    | gameState world == GameOver = world
+
 -- Updating held keys for WASD movement
 handleInput (EventKey (Char key) Down _ _) world
     | key `elem` "wasd" =
@@ -226,10 +230,16 @@ checkHellTrial world =
         then world { gameState = GameOver}
     else world
 
--- Update the game world every frame
+-- Updates the world at every frame
 updateWorld :: Float -> World -> World
-updateWorld dt world =
-    let
+updateWorld dt world
+    -- Return world with no updates
+    | gameState world == GameOver = world
+    | otherwise = updatePlayingWorld dt world
+
+updatePlayingWorld :: Float -> World -> World 
+updatePlayingWorld dt world = 
+    let 
         p = player world
         keys = heldKeys world
 
