@@ -3,7 +3,8 @@
 module Audio where
 
 import Model
-import Sound.ProteaAudio (Sample, Sound, sampleFromFile, initAudio, soundLoop, soundStop)
+import Sound.ProteaAudio (Sample, Sound, sampleFromFile, initAudio, soundLoop, soundPlay, soundStop)
+import System.Random (randomRIO)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Control.Monad (when)
 
@@ -40,6 +41,8 @@ data Music = Music
     { motif         :: Sample
     , gothicPursuit :: Sample
     , descent       :: Sample
+    -- Sound effects
+    , swordSwing    :: Sample
     }
 
 -- Load every track from the music folder at startup
@@ -49,6 +52,7 @@ loadMusic folder =
         <$> sampleFromFile (folder ++ "/Motif.mp3") 1.0
         <*> sampleFromFile (folder ++ "/Gothic Pursuit.mp3") 1.0
         <*> sampleFromFile (folder ++ "/Descent.mp3") 1.0
+        <*> sampleFromFile (folder ++ "/Sword attack.mp3") 1.0
 
 -- The sample to play for a track (Nothing means play no music)
 sampleFor :: Music -> Track -> Maybe Sample
@@ -101,3 +105,20 @@ updateMusic music musicPlayer world = do
                 Nothing     -> return Nothing
 
         writeIORef musicPlayer (wantedTrack, newSound)
+
+
+-- SOUND EFFECTS:
+
+-- Sword swing volume (0 = silent, 1 = full)
+swordVolume :: Float
+swordVolume = 0.4
+
+-- Play the sword sound if the player started a new attack between these two worlds
+-- (startAttack sets attackTimer, so it only goes up at the moment a swing begins)
+playAttackSound :: Music -> World -> World -> IO ()
+playAttackSound music oldWorld newWorld =
+    when (attackTimer (player newWorld) > attackTimer (player oldWorld)) $ do
+        -- Slightly different pitch each swing so it doesn't sound repetitive
+        pitch <- randomRIO (0.9, 1.1)
+        _ <- soundPlay (swordSwing music) swordVolume swordVolume 0 pitch
+        return ()

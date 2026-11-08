@@ -7,7 +7,7 @@ import qualified Victoria
 import qualified Limbo
 import qualified Hell
 import MapArt
-import Audio (setupMusic, updateMusic)
+import Audio (setupMusic, updateMusic, playAttackSound)
 import Spawn (enemyTypesFor)
 
 data Maps = Maps
@@ -321,7 +321,11 @@ main = do
                 ])
 
         -- Handle movement, attacks, dash, rewind and restarting
-        (\event world -> return (handleLevelInput startingWorld event world))
+        (\event world -> do
+            let newWorld = handleLevelInput startingWorld event world
+            -- Sword sound when Space starts a new swing
+            mapM_ (\(music, _) -> playAttackSound music world newWorld) audio
+            return newWorld)
 
         -- Update game world every frame, then switch music if the scene changed
         (\dt world -> do
