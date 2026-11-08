@@ -304,6 +304,42 @@ drawVictory world
     | otherwise = Blank
 
 
+-- Title screen shown when the game first opens
+drawStartScreen :: World -> Picture
+drawStartScreen world
+    | gameState world == Menu =
+        let
+            gold = makeColor 1 0.8 0.3 1
+            pale = makeColor 0.8 0.78 0.85 1
+
+            -- One control: key in gold on the left, action in white on the right
+            controlLine y key action = pictures
+                [ translate (-70) y (centredText 0.11 gold key)
+                , translate 70 y (centredText 0.11 white action)
+                ]
+
+        in pictures
+            [ -- Almost opaque so the title stands out over the paused map
+              color (makeColor 0.02 0.01 0.03 0.88) (rectangleSolid windowWidth windowHeight)
+
+              -- Title
+            , translate 0 190 (centredText 0.45 gold "CHRONOBOUND")
+
+              -- Premise
+            , translate 0 125 (centredText 0.11 pale "Your time is your life.")
+            , translate 0 100 (centredText 0.11 pale "Kill to steal more... before it runs out.")
+
+              -- Controls
+            , controlLine 40 "WASD" "Move"
+            , controlLine 10 "SPACE" "Attack"
+            , controlLine (-20) "F" "Dash"
+            , controlLine (-50) "R" "Rewind"
+
+              -- Start prompt
+            , translate 0 (-140) (centredText 0.16 white "Press ENTER to begin")
+            ]
+    | otherwise = Blank
+
 -- Upgrade selection screen shown between Hell layers
 drawUpgradeScreen :: World -> Picture
 drawUpgradeScreen world

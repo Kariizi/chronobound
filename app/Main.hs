@@ -67,6 +67,13 @@ handleLevelInput _ event world
             -- Ignore other keys while choosing
             _ -> world
 
+-- Start screen: Enter begins the game
+handleLevelInput _ event world
+    | gameState world == Menu =
+        case event of
+            EventKey (SpecialKey KeyEnter) Down _ _ -> world { gameState = Playing }
+            _ -> world
+
 -- For Victory or Game Over
 handleLevelInput startingWorld event world
     | gameState world /= Playing =
@@ -202,7 +209,8 @@ main = do
         black
         60
 
-        startingWorld
+        -- Open on the start screen (restarts use startingWorld and skip it)
+        (startingWorld { gameState = Menu })
 
         -- Draw game world
         (\world ->
@@ -228,6 +236,9 @@ main = do
 
                   -- Upgrade selection screen between Hell layers
                 , drawUpgradeScreen world
+
+                  -- Start screen shown when the game first opens
+                , drawStartScreen world
                 ])
 
         -- Handle movement, attacks, dash, rewind, level debug keys and restarting

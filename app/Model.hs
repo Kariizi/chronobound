@@ -95,8 +95,9 @@ data Level
     deriving (Show, Eq)
 
 -- Stores gameState:
-data GameState 
-    = Playing
+data GameState
+    = Menu
+    | Playing
     | ChoosingUpgrade
     | GameOver
     | Victory
