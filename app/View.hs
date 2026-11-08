@@ -201,7 +201,36 @@ drawHUD world =
                 then drawHellHUD world
                 else Blank
 
-    in pictures [drawRewindFlash world, timeHUD, hellHUD]
+        -- Wave number and drain speed under the clock, only shown in Victoria
+        waveHUD =
+            if currentLevel world == VictoriaLevel
+                then drawWaveInfo world
+                else Blank
+
+    in pictures [drawRewindFlash world, timeHUD, waveHUD, hellHUD]
+
+-- Shows which Victoria wave the player is on and how fast their time is draining
+drawWaveInfo :: World -> Picture
+drawWaveInfo world =
+    let
+        waveText = "WAVE " ++ show (victoriaWave world)
+        drainText = "-" ++ show (drainRateFor world) ++ "s / sec"
+
+        -- Drain text turns red once it's faster than normal
+        drainColour =
+            if drainRateFor world > 1
+                then makeColor 0.95 0.3 0.25 1
+                else makeColor 0.8 0.78 0.85 1
+
+        -- Sits just under the clock in the top-left
+        infoX = -worldHalfWidth + 65
+        infoY = worldHalfHeight - 125
+
+    in translate infoX infoY
+        (pictures
+            [ centredText 0.1 (makeColor 1 0.8 0.3 1) waveText
+            , translate 0 (-18) (centredText 0.08 drainColour drainText)
+            ])
 
 
 -- Draw the player's remaining time as a clock
