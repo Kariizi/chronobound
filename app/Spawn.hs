@@ -38,22 +38,80 @@ spawnMob level zone generator =
         -- Generate position and retrieve the new generator
         (newPosition, generator1) = randomPosition zone generator
 
-        -- Choose a starting sprite based on the current level
-        sprite =
-            case level of
-                VictoriaLevel -> "wolf_brown"
-                LimboLevel    -> "ghost"
-                HellLevel     -> "shadow_beast"
+        -- Pick a random enemy type for this level
+        (enemyType, generator2) = randomEnemy level generator1
 
-        -- Create a mob using its existing default attributes
-        newMob = initialMob
+        -- Place the chosen enemy type in the zone
+        newMob = enemyType
             { mobPosition = newPosition
             , mobZone = zone
-            , mobSprite = sprite
             }
 
     -- Return both the new mob and updated generator
-    in (newMob, generator1)
+    in (newMob, generator2)
+
+
+-- ENEMY TYPES
+-- Each type is initialMob with different stats; the sprite is chosen per level
+-- (player melee does 3 damage, so HP 9 = 3 hits, 20 = 7 hits, 30 = 10 hits)
+
+-- Standard enemy: the original mob stats
+normalEnemy :: String -> Mob
+normalEnemy sprite = initialMob { mobSprite = sprite }
+
+-- Fast and fragile: rushes in, hits often but weakly, dies quickly
+fastEnemy :: String -> Mob
+fastEnemy sprite = initialMob
+    { mobSprite = sprite
+    , mobHealth = 9
+    , mobMaxHealth = 9
+    , mobSpeed = 140
+    , mobDamage = 3
+    , mobRadius = 12
+    , mobAttackInterval = 0.7
+    }
+
+-- Tank: slow and tough, hits hard but rarely
+tankEnemy :: String -> Mob
+tankEnemy sprite = initialMob
+    { mobSprite = sprite
+    , mobHealth = 30
+    , mobMaxHealth = 30
+    , mobSpeed = 50
+    , mobDamage = 10
+    , mobRadius = 20
+    , mobAttackRange = 8
+    , mobAttackInterval = 1.6
+    }
+
+-- Enemy types that can spawn in each level
+-- A type listed twice is twice as likely to be picked
+enemyTypesFor :: Level -> [Mob]
+enemyTypesFor level =
+    case level of
+        VictoriaLevel ->
+            [ normalEnemy "cultist", normalEnemy "cultist"
+            , fastEnemy "wolf_brown"
+            , tankEnemy "hooded_brute"
+            ]
+        LimboLevel ->
+            [ normalEnemy "ghost", normalEnemy "ghost"
+            , fastEnemy "bat_ghoul"
+            , tankEnemy "vampire"
+            ]
+        HellLevel ->
+            [ normalEnemy "shadow_beast", normalEnemy "shadow_beast"
+            , fastEnemy "wolf_black"
+            , tankEnemy "skeleton"
+            ]
+
+-- Pick one random enemy type for a level
+randomEnemy :: Level -> StdGen -> (Mob, StdGen)
+randomEnemy level generator =
+    let
+        types = enemyTypesFor level
+        (index, generator1) = randomR (0, length types - 1) generator
+    in (types !! index, generator1)
 
 
 -- Spawn multiple mobs in a specified zone

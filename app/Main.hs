@@ -8,6 +8,7 @@ import qualified Limbo
 import qualified Hell
 import MapArt
 import Audio (setupMusic, updateMusic)
+import Spawn (enemyTypesFor)
 
 data Maps = Maps
     { victoriaMap :: Victoria.Victoria
@@ -203,20 +204,6 @@ tooClose :: (Float, Float) -> (Float, Float) -> Bool
 tooClose (x1, y1) (x2, y2) =
     (x2 - x1)^2 + (y2 - y1)^2 < 80^2
 
--- Enemy character names used when spawning mobs (the animation type is added when drawing)
-enemySprites :: [String]
-enemySprites =
-    [ "bat_ghoul"
-    , "cultist"
-    , "ghost"
-    , "hooded_brute"
-    , "shadow_beast"
-    , "skeleton"
-    , "vampire"
-    , "wolf_black"
-    , "wolf_brown"
-    ]
-
 characters :: [String]
 characters =
     [ "player"
@@ -242,18 +229,19 @@ animationNames =
     , action <- ["breathe", "walk", "attack", "dash"]
     ]
 
--- Spawns n mobs in a zone, each with a random enemy sprite
+-- Spawns n mobs in a zone, each a random Victoria enemy type
 spawnZoneMobs :: Walkable -> Int -> Zone -> IO [Mob]
 spawnZoneMobs walkable n zone = do
     positions <- randomMobPositionsIn walkable zone n []
     mapM makeMob positions
   where
+    victoriaTypes = enemyTypesFor VictoriaLevel
+
     makeMob pos = do
-        k <- randomRIO (0, length enemySprites - 1)
-        return initialMob
+        k <- randomRIO (0, length victoriaTypes - 1)
+        return (victoriaTypes !! k)
             { mobPosition = pos
             , mobZone     = zone
-            , mobSprite   = enemySprites !! k
             }
 
 
