@@ -178,7 +178,6 @@ enterLevel newLevel world =
         }
 
 
-
 updateDamageNumbers :: Float -> [DamageNumber] -> [DamageNumber]
 updateDamageNumbers dt numbers =
     let
@@ -204,6 +203,28 @@ updateDamageNumbers dt numbers =
 
     in activeNumbers
 
+-- FOR HELL: CHECKS IF YOU WIN OR LOSE
+checkHellTrial :: World -> World 
+checkHellTrial world = 
+    let 
+        inHell = currentLevel world == HellLevel
+        trialWon = hellKills world >= hellRequiredKills
+        trialLost = hellTimeRemaining world <= 0
+    in
+            if not inHell
+                then world 
+    else if trialWon
+        then 
+            let
+                p = player world
+                healedPlayer = p { health = 20 }
+
+                healedWorld = world { player = healedPlayer }
+
+            in enterLevel LimboLevel healedWorld
+    else if trialLost
+        then world { gameState = GameOver}
+    else world
 
 -- Update the game world every frame
 updateWorld :: Float -> World -> World
@@ -270,5 +291,8 @@ updateWorld dt world =
         -- Update Hell's countdown after handling dimension changes
         worldWithHellTimer = updateHellTimer dt worldWithLevel
 
+        -- Check whether Death's Trial has ended
+        worldWithTrialResult = checkHellTrial worldWithHellTimer
+
     -- Update mobs using the new player position
-    in worldWithHellTimer { worldTime = worldTime world + dt }
+    in worldWithTrialResult { worldTime = worldTime world + dt }
