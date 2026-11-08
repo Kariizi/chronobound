@@ -312,7 +312,7 @@ limboExitTime = 52
 
 -- Time allowed to complete Deaths Trial
 hellTrialDuration :: Float
-hellTrialDuration = 60
+hellTrialDuration = 80
 
 -- The final layer of Hell contains the boss
 finalHellLayer :: Int
@@ -340,8 +340,8 @@ mobLungeSpeed = 350
 requiredKillsFor :: Int -> Int
 requiredKillsFor layer
     | layer == 1 = 5
-    | layer == 2 = 8
-    | layer == 3 = 10
+    | layer == 2 = 7
+    | layer == 3 = 8
     | otherwise = 1
 
 -- Number of kills required to escape Hell
@@ -395,6 +395,10 @@ victoriaUpgradeSelection =
     , DamageUpgrade 1
     , SpeedUpgrade 30
     ]
+
+-- In Hell, each point of mob damage costs this many seconds of trial time
+hellDamageTimeFactor :: Float
+hellDamageTimeFactor = 0.3
 
 -- Every this many seconds spent in Victoria, time drains 1 second faster
 drainIncreaseInterval :: Float
