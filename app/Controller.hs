@@ -5,7 +5,7 @@ import Model
 import Player
 import Combat
 import Mob
-import Spawn (spawnAllZones)
+import Spawn (spawnAllZones, respawnIfCleared, unstickMobs, scaleForHellLayer)
 import Boss (spawnBoss, moveBoss)
 
 -- Handles keyboard events
@@ -145,7 +145,12 @@ enterLevel newLevel world =
         (newMobs, updatedGenerator) =
             if newLevel == HellLevel && (newHellLayer == finalHellLayer)
                 then ([spawnBoss], rng world)
-                else spawnAllZones 3 newLevel (rng world)
+            -- Hell mobs get tougher the deeper the layer
+            else if newLevel == HellLevel
+                then
+                    let (hellMobs, generator) = spawnAllZones 3 newLevel (rng world)
+                    in (map (scaleForHellLayer newHellLayer) hellMobs, generator)
+            else spawnAllZones 3 newLevel (rng world)
 
         -- Check whether we're entering Hell
         enteringHell = newLevel == HellLevel
@@ -416,7 +421,10 @@ updatePlayingWorld walkable dt world =
                 else moveMobs walkable dt worldWithNumbers
 
         -- Update mob attack states and check damage
-        worldWithMobs = mobAttacks dt worldAfterMovement
+        worldAfterAttacks = mobAttacks dt worldAfterMovement
+
+        -- Send a new wave if the map is cleared, and move any mob stuck inside a building
+        worldWithMobs = unstickMobs walkable (respawnIfCleared worldAfterAttacks)
 
         -- Update world with snapshots 
         worldWithSnapshot = recordPlayerSnapshot dt worldWithMobs
