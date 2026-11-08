@@ -23,6 +23,7 @@ trackFor world =
         Paused          -> trackForLevel (currentLevel world)
         Playing         -> trackForLevel (currentLevel world)
         ChoosingUpgrade -> trackForLevel (currentLevel world)
+        BossDialog      -> trackForLevel (currentLevel world)
         GameOver        -> Silence
         Victory         -> MenuTheme
 

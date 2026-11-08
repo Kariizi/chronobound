@@ -36,6 +36,9 @@ data World = World
     , victoriaWave :: Int
     , victoriaTime :: Float
     , waveClearedTimer :: Float
+    -- Boss intro dialog: which line is showing, and how long it has been typing
+    , dialogIndex :: Int
+    , dialogTimer :: Float
     } deriving (Show, Eq)
 
 -- Storing information about the player
@@ -119,6 +122,7 @@ data GameState
     | Paused
     | Playing
     | ChoosingUpgrade
+    | BossDialog
     | GameOver
     | Victory
     deriving (Show, Eq)
@@ -372,6 +376,8 @@ initialWorld =
         , victoriaWave = 1
         , victoriaTime = 0
         , waveClearedTimer = 0
+        , dialogIndex = 0
+        , dialogTimer = 0
         }
 
 -- How long the "WAVE CLEARED" message stays on screen (seconds)
@@ -405,3 +411,34 @@ drainRateFor world =
 -- How long the rewind flash, ring and streak last (seconds)
 rewindEffectDuration :: Float
 rewindEffectDuration = 0.4
+
+-- BOSS DIALOG:
+
+-- What the Clockmaker says before the fight
+-- Gloss can't wrap text, so each line is split into a top and bottom half
+bossDialogLines :: [(String, String)]
+bossDialogLines =
+    [ ("So you made it all the way down.", "Took you long enough.")
+    , ("You've been killing a lot of things.", "Ever wonder what they actually were?")
+    , ("Doesn't matter now.", "Your clock's almost out anyway.")
+    , ("Let's get this over with.", "")
+    ]
+
+-- How fast the letters appear
+dialogCharsPerSecond :: Float
+dialogCharsPerSecond = 30
+
+-- How long a finished line stays before moving on by itself
+dialogHoldTime :: Float
+dialogHoldTime = 1.8
+
+-- Number of letters in a dialog line (both halves)
+dialogLineLength :: Int -> Int
+dialogLineLength index =
+    case drop index bossDialogLines of
+        ((top, bottom) : _) -> length top + length bottom
+        []                  -> 0
+
+-- Seconds it takes to type out a whole line
+dialogTypeTime :: Int -> Float
+dialogTypeTime index = fromIntegral (dialogLineLength index) / dialogCharsPerSecond
