@@ -1,5 +1,6 @@
 module Mob where
 import Model
+import Player (isDashing)
 
 --- Move one mob towards its slot on the ring around the player
 moveMob :: Float -> Float -> Player -> Mob -> Mob
@@ -116,6 +117,7 @@ canHitPlayer p mob =
     mobZone mob == zoneOf (position p)
     && mobAttackCooldown mob <= 0
     && distanceToPlayer p mob <= playerRadius + mobRadius mob + mobAttackRange mob
+    && not (isDashing p)
 
 -- Count a mob's cooldown down
 tickCooldown :: Float -> Mob -> Mob

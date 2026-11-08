@@ -263,7 +263,7 @@ dashSpeed :: Float
 dashSpeed = 800
 
 dashDuration :: Float
-dashDuration = 0.12
+dashDuration = 0.3
 
 dashCooldown :: Float
 dashCooldown = 0.8
