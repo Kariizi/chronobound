@@ -48,11 +48,54 @@ drawLevel ms level (px, py) =
 
     in scale mapZoom mapZoom picture
 
-handleLevelInput :: Event -> World -> World
-handleLevelInput (EventKey (Char '1') Down _ _) world = world { currentLevel = VictoriaLevel }
-handleLevelInput (EventKey (Char '2') Down _ _) world = world { currentLevel = LimboLevel }
-handleLevelInput (EventKey (Char '3') Down _ _) world = world { currentLevel = HellLevel }
-handleLevelInput event world = handleInput event world 
+-- Takes the starting world so Enter can restart the game after Game Over
+handleLevelInput :: World -> Event -> World -> World
+
+-- Handle upgrade selection
+handleLevelInput _ event world
+    | gameState world == ChoosingUpgrade =
+        case event of
+            -- Select first upgrade
+            EventKey (Char '1') Down _ _ -> chooseUpgrade 1 world
+
+            -- Select second upgrade
+            EventKey (Char '2') Down _ _ -> chooseUpgrade 2 world
+
+            -- Select third upgrade
+            EventKey (Char '3') Down _ _ -> chooseUpgrade 3 world
+
+            -- Ignore other keys while choosing
+            _ -> world
+
+-- Start screen: Enter begins the game
+handleLevelInput _ event world
+    | gameState world == Menu =
+        case event of
+            EventKey (SpecialKey KeyEnter) Down _ _ -> world { gameState = Playing }
+            _ -> world
+
+-- For Victory or Game Over
+handleLevelInput startingWorld event world
+    | gameState world /= Playing =
+        case event of
+            EventKey (SpecialKey KeyEnter) Down _ _ -> startingWorld
+            _ -> world
+
+-- Debug keys: jump to a level with HP that belongs there
+handleLevelInput _ (EventKey (Char '1') Down _ _) world = debugJump VictoriaLevel 100 world
+handleLevelInput _ (EventKey (Char '2') Down _ _) world = debugJump LimboLevel 20 world
+handleLevelInput _ (EventKey (Char '3') Down _ _) world = debugJump HellLevel 0 world
+handleLevelInput _ event world = handleInput event world
+
+-- Sets the player's HP and enters the level properly (new mobs, Hell trial reset)
+-- HP matches the level so levelDependingOnHP doesn't immediately switch back
+debugJump :: Level -> Int -> World -> World
+debugJump level hp world =
+    let
+        p = player world
+        worldWithHP = world { player = p { health = hp } }
+
+    in enterLevel level worldWithHP
 
 zoneBounds :: Zone -> (Float, Float, Float, Float)
 zoneBounds TopLeft     = (-maxX, -lineMargin,  lineMargin,  maxY)
@@ -166,7 +209,8 @@ main = do
         black
         60
 
-        startingWorld
+        -- Open on the start screen (restarts use startingWorld and skip it)
+        (startingWorld { gameState = Menu })
 
         -- Draw game world
         (\world ->
@@ -183,10 +227,22 @@ main = do
 
                   -- Draw HUD without camera translation
                 , drawHUD world
+
+                  -- Game Over overlay goes last so it covers everything
+                , drawGameOver world
+
+                  -- Victory screen after the boss is defeated
+                , drawVictory world
+
+                  -- Upgrade selection screen between Hell layers
+                , drawUpgradeScreen world
+
+                  -- Start screen shown when the game first opens
+                , drawStartScreen world
                 ])
 
-        -- Handle movement, attacks, dash, rewind and level debug keys
-        handleLevelInput
+        -- Handle movement, attacks, dash, rewind, level debug keys and restarting
+        (handleLevelInput startingWorld)
 
         -- Update game world every frame
         updateWorld
