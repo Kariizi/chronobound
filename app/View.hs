@@ -82,7 +82,7 @@ drawWorld sprites world =
 
     -- Mobs at the back, damage numbers on top
     in pictures
-        (mobPictures ++ [drawRewindTrail world, drawRewindPreview world, playerPicture] ++ damagePictures)
+        (mobPictures ++ [drawRewindTrail world, drawRewindPreview world, drawRewindEffect world, playerPicture] ++ damagePictures)
 
 
 -- How long a mob's attack animation plays after it hits (length of the attack GIF)
@@ -172,7 +172,7 @@ drawHUD world =
                 then drawHellHUD world
                 else Blank
 
-    in pictures [timeHUD, hellHUD]
+    in pictures [drawRewindFlash world, timeHUD, hellHUD]
 
 
 -- Draw the player's remaining time as a clock
@@ -602,13 +602,95 @@ drawRewindPreview world =
             let
                 -- Retrieve the oldest saved player position
                 (x, y) = snapshotPosition (last history)
-                -- Create the rewind marker
-                marker = pictures
-                    [ color (makeColor 0.4 0.85 1 1) (thickCircle 22 3)
-                    , color white (line [(0, 0), (0, 12)])
-                    , color white (line [(0, 0), (9, 0)])
+
+                t = worldTime world
+                cyan alpha = makeColor 0.4 0.85 1 alpha
+
+                -- Gently pulse the ring's size and glow
+                pulse = (sin (t * 4) + 1) / 2
+                radius = 22 + 2 * pulse
+
+                -- Faint clock face
+                face = color (cyan (0.12 + 0.08 * pulse)) (circleSolid radius)
+                ring = color (cyan (0.7 + 0.3 * pulse)) (thickCircle radius 3)
+
+                -- 12 small tick marks around the edge
+                ticks = pictures
+                    [ rotate (fromIntegral i * 30)
+                        (color (cyan 0.8) (line [(0, radius - 6), (0, radius - 2)]))
+                    | i <- [0 .. 11 :: Int]
                     ]
-            in translate x y marker
+
+                -- Hands spin anticlockwise: time running backwards
+                minuteHand = rotate (-(t * 360))
+                    (color white (line [(0, 0), (0, radius - 7)]))
+                hourHand = rotate (-(t * 30))
+                    (color white (line [(0, 0), (0, radius - 12)]))
+
+                centre = color white (circleSolid 1.5)
+
+            in translate x y (pictures [face, ring, ticks, hourHand, minuteHand, centre])
+
+-- How far through the rewind effect we are: 0 when it starts, 1 when it ends
+rewindEffectProgress :: World -> Float
+rewindEffectProgress world = 1 - rewindEffectTimer world / rewindEffectDuration
+
+-- Rewind effect in the game world: a streak from where the player was,
+-- and rings bursting out from where they landed
+drawRewindEffect :: World -> Picture
+drawRewindEffect world
+    | rewindEffectTimer world <= 0 = Blank
+    | otherwise =
+        let
+            progress = rewindEffectProgress world
+            fade = 1 - progress
+
+            (fromX, fromY) = rewindFrom world
+            (toX, toY) = position (player world)
+
+            cyan alpha = makeColor 0.4 0.85 1 alpha
+
+            -- Streak: a band from the old position to the new one that thins and fades
+            dx = toX - fromX
+            dy = toY - fromY
+            len = max 1 (sqrt (dx * dx + dy * dy))
+            -- Unit vector at right angles to the streak, scaled to half its width
+            halfWidth = 10 * fade
+            (nx, ny) = (-dy / len * halfWidth, dx / len * halfWidth)
+            streak = color (cyan (0.35 * fade))
+                (polygon
+                    [ (fromX + nx, fromY + ny)
+                    , (toX + nx, toY + ny)
+                    , (toX - nx, toY - ny)
+                    , (fromX - nx, fromY - ny)
+                    ])
+            streakCore = color (makeColor 1 1 1 (0.8 * fade))
+                (line [(fromX, fromY), (toX, toY)])
+
+            -- Afterimages left along the path
+            afterimages = pictures
+                [ translate (fromX + dx * k) (fromY + dy * k)
+                    (color (cyan (0.4 * fade * (1 - k))) (circleSolid (14 * fade + 2)))
+                | k <- [0, 0.25, 0.5, 0.75]
+                ]
+
+            -- Two rings bursting outwards from the landing spot, the second slightly behind
+            ringAt delay =
+                let local = max 0 ((progress - delay) / (1 - delay))
+                in color (cyan (0.9 * (1 - local)))
+                    (thickCircle (18 + 70 * local) (5 * (1 - local) + 1))
+            rings = translate toX toY (pictures [ringAt 0, ringAt 0.3])
+
+        in pictures [streak, afterimages, streakCore, rings]
+
+-- Quick cyan flash over the whole screen when the player rewinds (drawn with the HUD)
+drawRewindFlash :: World -> Picture
+drawRewindFlash world
+    | rewindEffectTimer world <= 0 = Blank
+    | otherwise =
+        let fade = 1 - rewindEffectProgress world
+        in color (makeColor 0.5 0.9 1 (0.3 * fade * fade))
+            (rectangleSolid windowWidth windowHeight)
 
 -- Draws a trail showing the player's previous positions
 drawRewindTrail :: World -> Picture

@@ -183,6 +183,7 @@ enterLevel newLevel world =
         , playerHistory = []
         , projectiles = []
         , damageNumbers = []
+        , rewindEffectTimer = 0
 
         -- Store Hell trial values
         , hellTimeRemaining = newHellTime
@@ -414,4 +415,8 @@ updatePlayingWorld walkable dt world =
         worldWithTrialResult = checkHellTrial worldWithHellTimer
 
     -- Update mobs using the new player position
-    in worldWithTrialResult { worldTime = worldTime world + dt }
+    in worldWithTrialResult
+        { worldTime = worldTime world + dt
+        -- Fade out the rewind effect
+        , rewindEffectTimer = max 0 (rewindEffectTimer worldWithTrialResult - dt)
+        }

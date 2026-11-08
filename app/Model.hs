@@ -29,6 +29,9 @@ data World = World
     , bonusHellTime :: Float
     -- For generating Mobs
     , rng :: StdGen
+    -- Rewind effect: time left on the effect, and where the player rewound from
+    , rewindEffectTimer :: Float
+    , rewindFrom :: (Float, Float)
     } deriving (Show, Eq)
 
 -- Storing information about the player
@@ -322,4 +325,11 @@ initialWorld =
         , bonusHellTime = 0
         -- For generating Mobs
         , rng = mkStdGen 0
+        -- No rewind effect playing at the start
+        , rewindEffectTimer = 0
+        , rewindFrom = (0, 0)
         }
+
+-- How long the rewind flash, ring and streak last (seconds)
+rewindEffectDuration :: Float
+rewindEffectDuration = 0.4
