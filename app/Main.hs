@@ -97,6 +97,31 @@ enemySprites =
     , "wolf_brown_breathe"
     ]
 
+characters :: [String]
+characters =
+    [ "player"
+    , "player_corrupted"
+    , "boss"
+    , "bat_ghoul"
+    , "cultist"
+    , "ghost"
+    , "hooded_brute"
+    , "shadow_beast"
+    , "skeleton"
+    , "vampire"
+    , "wolf_black"
+    , "wolf_brown"
+    ]
+
+animationNames :: [String]
+animationNames =
+    [ character ++ "_" ++ action
+    -- Loops through each character in character list
+    | character <- characters
+    -- Loop through each animation type for the character
+    , action <- ["breathe", "walk", "attack", "dash"]
+    ]
+
 -- Spawns n mobs in a zone, each with a random enemy sprite
 spawnZoneMobs :: Int -> Zone -> IO [Mob]
 spawnZoneMobs n zone = do
@@ -131,26 +156,13 @@ main = do
         <*> Hell.loadHell "app/assets/hell"
 
     -- Loads animated GIF sprites instead of static PNGs
-    sprites <- loadAnimationSet 8 "app/assets/spriteanimated"
-        [ "player_breathe"
-        , "player_corrupted_breathe"
-        , "boss_breathe"
-        , "bat_ghoul_breathe"
-        , "cultist_breathe"
-        , "ghost_breathe"
-        , "hooded_brute_breathe"
-        , "shadow_beast_breathe"
-        , "skeleton_breathe"
-        , "vampire_breathe"
-        , "wolf_black_breathe"
-        , "wolf_brown_breathe"
-        ]
+    sprites <- loadAnimationSet 8 "app/assets/spriteanimated" animationNames
 
     play
         (InWindow "Chronobound" (round windowWidth, round windowHeight) (100, 100))
         black
         60
-        
+
         startingWorld
 
         -- Draw game world
