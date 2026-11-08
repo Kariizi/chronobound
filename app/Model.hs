@@ -98,6 +98,7 @@ data Level
 -- Stores gameState:
 data GameState
     = Menu
+    | Paused
     | Playing
     | ChoosingUpgrade
     | GameOver

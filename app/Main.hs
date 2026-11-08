@@ -143,6 +143,22 @@ handleLevelInput _ event world
             -- Ignore other keys while choosing
             _ -> world
 
+-- Handles Pauses
+handleLevelInput _ (EventKey (SpecialKey KeyEsc) Down _ _) world 
+    | gameState world == Playing =
+        world
+            { gameState = Paused
+            , heldKeys = []
+            }
+-- Resume the game when ESC is pressed
+handleLevelInput _ (EventKey (SpecialKey KeyEsc) Down _ _) world
+    | gameState world == Paused =
+        world { gameState = Playing }
+
+-- Ignore other inputs while paused
+handleLevelInput _ _ world
+    | gameState world == Paused = world
+
 -- Start screen: Enter begins the game
 handleLevelInput _ event world
     | gameState world == Menu =
@@ -243,8 +259,6 @@ spawnZoneMobs walkable n zone = do
 
 main :: IO ()
 main = do
-    
-    
 
     -- Load all three maps
     maps <- Maps
