@@ -336,8 +336,9 @@ checkHellTrial world =
 -- walkable says which world positions are walkable on the current map
 updateWorld :: Walkable -> Float -> World -> World
 updateWorld walkable dt world
-    | gameState world == Menu = 
-        world { worldTime = worldTime world + dt}
+    -- Keep the clock running on the menu and pause screen so their text can pulse
+    | gameState world == Menu || gameState world == Paused =
+        world { worldTime = worldTime world + dt }
     
     -- Return world with no updates
     | gameState world /= Playing = world

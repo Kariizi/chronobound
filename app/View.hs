@@ -371,26 +371,60 @@ drawGameOver world
 drawPauseScreen :: World -> Picture
 drawPauseScreen world
     | gameState world == Paused =
-        pictures
-            [ -- Dark overlay over the game
-              color (makeColor 0 0 0 0.75)
+        let
+            gold = makeColor 1 0.8 0.3 1
+            pale = makeColor 0.8 0.78 0.85 1
+
+            -- Slowly pulse the resume instruction
+            pulse = (sin (worldTime world * 3) + 1) / 2
+            resumeColour = makeColor 1 1 1 (0.4 + 0.6 * pulse)
+
+            -- Where the player is, shown under the title
+            whereText =
+                case currentLevel world of
+                    VictoriaLevel -> "Victorian London"
+                    LimboLevel    -> "Limbo"
+                    HellLevel     -> "Hell - Layer " ++ show (hellLayer world)
+
+        in pictures
+            [ -- Dark overlay, slightly lighter than the menu so the frozen game shows through
+              color (makeColor 0.02 0.01 0.03 0.8)
                   (rectangleSolid windowWidth windowHeight)
 
-              -- Pause title
-            , translate 0 60
-                (centredText 0.4 (makeColor 1 0.8 0.3 1) "PAUSED")
+              -- Title shadow
+            , translate 3 127
+                (centredText 0.4 (makeColor 0.2 0.1 0.05 1) "PAUSED")
+
+              -- Title
+            , translate 0 130
+                (centredText 0.4 gold "PAUSED")
+
+              -- Current dimension
+            , translate 0 80
+                (centredText 0.11 pale whereText)
 
               -- Controls
-            , translate 0 0
-                (centredText 0.13 white "WASD - Move | SPACE - Attack")
-            , translate 0 (-30)
-                (centredText 0.13 white "F - Dash | R - Rewind")
+            , controlLine 30 "WASD" "Move"
+            , controlLine 0 "SPACE" "Attack"
+            , controlLine (-30) "F" "Dash"
+            , controlLine (-60) "R" "Rewind"
+            , controlLine (-90) "ESC" "Resume"
 
               -- Resume instruction
-            , translate 0 (-100)
-                (centredText 0.15 white "Press ESC to resume")
+            , translate 0 (-160)
+                (centredText 0.15 resumeColour "Press ESC to resume")
             ]
     | otherwise = Blank
+
+
+-- One control line: key in gold on the left, action in white on the right
+-- (shared by the start screen and the pause screen)
+controlLine :: Float -> String -> String -> Picture
+controlLine y key action =
+    pictures
+        [ translate (-70) y (centredText 0.11 (makeColor 1 0.8 0.3 1) key)
+        , translate 70 y (centredText 0.11 white action)
+        ]
 
 
 -- Ending screen after defeating the boss, revealing the story's twist
@@ -433,12 +467,6 @@ drawStartScreen world
         let
             gold = makeColor 1 0.8 0.3 1
             pale = makeColor 0.8 0.78 0.85 1
-
-            -- One control: key in gold on the left, action in white on the right
-            controlLine y key action = pictures
-                [ translate (-70) y (centredText 0.11 gold key)
-                , translate 70 y (centredText 0.11 white action)
-                ]
 
             -- Slowly pulse the start instruction
             pulse = (sin (worldTime world * 3) + 1) / 2
@@ -641,7 +669,6 @@ frameAtProgress anim progress =
         -- Convert progress into animation time = gets the frame we are at
         -- Multiplying percentage of frame we are at by total duration
         animationTime = safeProgress * totalDuration
-     -- sda
     -- Show the last frame when finished, otherwise select the current frame
     in if safeProgress >= 1
         then last (animFrames anim)
