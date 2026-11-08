@@ -8,6 +8,7 @@ import qualified Limbo
 import qualified Hell
 import MapArt
 import Audio (setupMusic, updateMusic)
+import Spawn (enemyTypesFor)
 
 data Maps = Maps
     { victoriaMap :: Victoria.Victoria
@@ -143,6 +144,22 @@ handleLevelInput _ event world
             -- Ignore other keys while choosing
             _ -> world
 
+-- Handles Pauses
+handleLevelInput _ (EventKey (SpecialKey KeyEsc) Down _ _) world 
+    | gameState world == Playing =
+        world
+            { gameState = Paused
+            , heldKeys = []
+            }
+-- Resume the game when ESC is pressed
+handleLevelInput _ (EventKey (SpecialKey KeyEsc) Down _ _) world
+    | gameState world == Paused =
+        world { gameState = Playing }
+
+-- Ignore other inputs while paused
+handleLevelInput _ _ world
+    | gameState world == Paused = world
+
 -- Start screen: Enter begins the game
 handleLevelInput _ event world
     | gameState world == Menu =
@@ -157,21 +174,7 @@ handleLevelInput startingWorld event world
             EventKey (SpecialKey KeyEnter) Down _ _ -> startingWorld
             _ -> world
 
--- Debug keys: jump to a level with HP that belongs there
-handleLevelInput _ (EventKey (Char '1') Down _ _) world = debugJump VictoriaLevel 100 world
-handleLevelInput _ (EventKey (Char '2') Down _ _) world = debugJump LimboLevel 20 world
-handleLevelInput _ (EventKey (Char '3') Down _ _) world = debugJump HellLevel 0 world
 handleLevelInput _ event world = handleInput event world
-
--- Sets the player's HP and enters the level properly (new mobs, Hell trial reset)
--- HP matches the level so levelDependingOnHP doesn't immediately switch back
-debugJump :: Level -> Int -> World -> World
-debugJump level hp world =
-    let
-        p = player world
-        worldWithHP = world { player = p { health = hp } }
-
-    in enterLevel level worldWithHP
 
 zoneBounds :: Zone -> (Float, Float, Float, Float)
 zoneBounds TopLeft     = (-maxX, -lineMargin,  lineMargin,  maxY)
@@ -201,20 +204,6 @@ tooClose :: (Float, Float) -> (Float, Float) -> Bool
 tooClose (x1, y1) (x2, y2) =
     (x2 - x1)^2 + (y2 - y1)^2 < 80^2
 
--- Enemy character names used when spawning mobs (the animation type is added when drawing)
-enemySprites :: [String]
-enemySprites =
-    [ "bat_ghoul"
-    , "cultist"
-    , "ghost"
-    , "hooded_brute"
-    , "shadow_beast"
-    , "skeleton"
-    , "vampire"
-    , "wolf_black"
-    , "wolf_brown"
-    ]
-
 characters :: [String]
 characters =
     [ "player"
@@ -240,25 +229,24 @@ animationNames =
     , action <- ["breathe", "walk", "attack", "dash"]
     ]
 
--- Spawns n mobs in a zone, each with a random enemy sprite
+-- Spawns n mobs in a zone, each a random Victoria enemy type
 spawnZoneMobs :: Walkable -> Int -> Zone -> IO [Mob]
 spawnZoneMobs walkable n zone = do
     positions <- randomMobPositionsIn walkable zone n []
     mapM makeMob positions
   where
+    victoriaTypes = enemyTypesFor VictoriaLevel
+
     makeMob pos = do
-        k <- randomRIO (0, length enemySprites - 1)
-        return initialMob
+        k <- randomRIO (0, length victoriaTypes - 1)
+        return (victoriaTypes !! k)
             { mobPosition = pos
             , mobZone     = zone
-            , mobSprite   = enemySprites !! k
             }
 
 
 main :: IO ()
 main = do
-    
-    
 
     -- Load all three maps
     maps <- Maps
@@ -312,9 +300,12 @@ main = do
 
                   -- Start screen shown when the game first opens
                 , drawStartScreen world
+
+                -- Pause menu overlay
+                , drawPauseScreen world
                 ])
 
-        -- Handle movement, attacks, dash, rewind, level debug keys and restarting
+        -- Handle movement, attacks, dash, rewind and restarting
         (\event world -> return (handleLevelInput startingWorld event world))
 
         -- Update game world every frame, then switch music if the scene changed

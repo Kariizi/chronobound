@@ -29,6 +29,9 @@ data World = World
     , bonusHellTime :: Float
     -- For generating Mobs
     , rng :: StdGen
+    -- Rewind effect: time left on the effect, and where the player rewound from
+    , rewindEffectTimer :: Float
+    , rewindFrom :: (Float, Float)
     } deriving (Show, Eq)
 
 -- Storing information about the player
@@ -66,6 +69,16 @@ data PlayerSnapshot = PlayerSnapshot
     , snapshotAge :: Float
     } deriving (Show, Eq)
 
+-- FOR MOB:
+
+-- Storing Attacks of the mobs:
+-- Chasing = follows play, winding up = preparing attack, Lunging = attacking
+data MobAction
+    = Chasing 
+    | WindingUp Float 
+    | Lunging Float (Float, Float)
+    deriving (Show, Eq)
+
 -- Storing information about the mobs
 data Mob = Mob
     { mobPosition :: (Float, Float)
@@ -77,6 +90,7 @@ data Mob = Mob
     , mobAttackRange :: Float
     , mobZone :: Zone
     , mobSprite :: String
+    , mobAction :: MobAction
 
     -- Random animation timing for each mob
     , mobAnimOffset :: Float
@@ -98,6 +112,7 @@ data Level
 -- Stores gameState:
 data GameState
     = Menu
+    | Paused
     | Playing
     | ChoosingUpgrade
     | GameOver
@@ -125,6 +140,8 @@ initialMob =
 
         -- One second between attacks
         , mobAttackInterval = 1.0
+
+        , mobAction = Chasing
         }
 
 -- Storing information about weapons
@@ -262,7 +279,7 @@ dashSpeed :: Float
 dashSpeed = 800
 
 dashDuration :: Float
-dashDuration = 0.12
+dashDuration = 0.3
 
 dashCooldown :: Float
 dashCooldown = 0.8
@@ -283,6 +300,24 @@ hellTrialDuration = 60
 -- The final layer of Hell contains the boss
 finalHellLayer :: Int
 finalHellLayer = 3
+
+-- Maximum Time for Levels
+displayMaxTime :: Float
+displayMaxTime = 100
+
+-- For Mob Attacks 
+
+-- How long mobs prepare before lunging
+mobWindupTime :: Float
+mobWindupTime = 0.45
+
+-- How long a mob spends lunging
+mobLungeTime :: Float
+mobLungeTime = 0.2
+
+-- How quickly a mob lunges
+mobLungeSpeed :: Float
+mobLungeSpeed = 350
 
 -- Number of enemies required to complete each layer
 requiredKillsFor :: Int -> Int
@@ -317,4 +352,11 @@ initialWorld =
         , bonusHellTime = 0
         -- For generating Mobs
         , rng = mkStdGen 0
+        -- No rewind effect playing at the start
+        , rewindEffectTimer = 0
+        , rewindFrom = (0, 0)
         }
+
+-- How long the rewind flash, ring and streak last (seconds)
+rewindEffectDuration :: Float
+rewindEffectDuration = 0.4

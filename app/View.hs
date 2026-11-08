@@ -82,7 +82,7 @@ drawWorld sprites world =
 
     -- Mobs at the back, damage numbers on top
     in pictures
-        (mobPictures ++ [drawRewindTrail world, drawRewindPreview world, playerPicture] ++ damagePictures)
+        (mobPictures ++ [drawRewindTrail world, drawRewindPreview world, drawRewindEffect world, playerPicture] ++ damagePictures)
 
 
 -- How long a mob's attack animation plays after it hits (length of the attack GIF)
@@ -109,7 +109,13 @@ drawMob sprites time p mob =
 
         -- Determine which animation the mob should use
         animationType
-            -- Highest priority: just hit the player
+            -- Charging at the player
+            | isLunging = "dash"
+
+            -- Holding still while the warning shows
+            | isWindingUp = "breathe"
+
+            -- Just finished an attack
             | mobAttackCooldown mob > 0 && timeSinceHit < mobAttackAnimDuration = "attack"
 
             -- Moving towards the player
@@ -117,6 +123,28 @@ drawMob sprites time p mob =
 
             -- Otherwise idle
             | otherwise = "breathe"
+
+        isLunging = case mobAction mob of
+            Lunging _ _ -> True
+            _           -> False
+
+        isWindingUp = case mobAction mob of
+            WindingUp _ -> True
+            _           -> False
+
+        -- Red warning while winding up: a ring that closes in and brightens until the lunge
+        warning = case mobAction mob of
+            WindingUp timeLeft ->
+                let
+                    progress = 1 - timeLeft / mobWindupTime
+                    ringRadius = mobRadius mob + 6 + 22 * (1 - progress)
+                in pictures
+                    [ color (makeColor 1 0.15 0.1 (0.15 + 0.25 * progress))
+                        (circleSolid (mobRadius mob + 6))
+                    , color (makeColor 1 0.2 0.15 (0.5 + 0.5 * progress))
+                        (thickCircle ringRadius 3)
+                    ]
+            _ -> Blank
 
         -- Combine character name with animation type
         animation = sprites M.! (mobSprite mob ++ "_" ++ animationType)
@@ -133,7 +161,8 @@ drawMob sprites time p mob =
         s = 2
         sx = if px < x then -s else s
 
-    in translate x y (scale sx s (artPic art))
+    -- Warning drawn first so it sits under the sprite
+    in translate x y (pictures [warning, scale sx s (artPic art)])
 
 
 -- Draw a floating damage number
@@ -163,29 +192,98 @@ drawDamageNumber number =
 drawHUD :: World -> Picture
 drawHUD world =
     let
-        -- Retrieve player and health
-        p = player world
-        currentHP = health p
-        maximumHP = maxHealth p
+        -- Draw players remaining time as a clock
+        timeHUD = drawTimeClock world
 
-        -- Convert HP into text
-        hpText = "TIME: " ++ show currentHP
-
-        -- Position HUD near top-left of screen
-        hudX = -worldHalfWidth + 20
-        hudY = worldHalfHeight - 40
-
-        timeHUD = translate hudX hudY
-            (scale 0.15 0.15
-                (color white (Text hpText)))
-
-        -- Extra Death's Trial panel, only shown in Hell
+        -- Extra Deaths Trial panel, only shown in Hell
         hellHUD =
             if currentLevel world == HellLevel
                 then drawHellHUD world
                 else Blank
 
-    in pictures [timeHUD, hellHUD]
+    in pictures [drawRewindFlash world, timeHUD, hellHUD]
+
+
+-- Draw the player's remaining time as a clock
+drawTimeClock :: World -> Picture
+drawTimeClock world =
+    let
+        -- Retrieve player and remaining time
+        p = player world
+        currentHP = health p
+
+        -- Calculate how much of the clock remains
+        timeFraction = max 0 (min 1 (fromIntegral currentHP / displayMaxTime))
+
+        -- Clock dimensions
+        clockRadius = 34
+        ringThickness = 4
+
+        -- Colour of clock depending on remaining time
+        clockColour
+            | currentLevel world == LimboLevel || currentHP < 30 =
+                makeColor 0.9 0.2 0.2 1
+
+            | currentHP <= 40 =
+                makeColor 0.65 0.4 0.9 1
+
+            | otherwise =
+                makeColor 0.95 0.75 0.35 1
+
+        -- Dark background for the clock
+        clockBackground =
+            color (makeColor 0.12 0.1 0.14 0.9)
+                (circleSolid (clockRadius + 5))
+
+        -- Outline of the full clock
+        clockOutline =
+            color (makeColor 0.3 0.25 0.3 1)
+                (thickCircle clockRadius ringThickness)
+
+        -- Calculate how much of the circular ring is filled
+        filledAngle = 360 * timeFraction
+
+        -- Draw remaining time as a circular arc, filling clockwise from 12 o'clock
+        -- (drawn from 0 then rotated, because Gloss swaps arc angles that wrap past 0)
+        clockFill
+            | timeFraction <= 0 = Blank
+            | otherwise =
+                rotate (filledAngle - 90)
+                    (color clockColour
+                        (thickArc 0 filledAngle clockRadius ringThickness))
+
+        -- Draw small clock markings
+        clockTicks =
+            pictures
+                [ rotate (fromIntegral i * 30)
+                    (color (makeColor 0.7 0.6 0.5 0.8)
+                        (line [(0, clockRadius - 10), (0, clockRadius - 5)]))
+                | i <- [0 .. 11]
+                ]
+
+        -- Display remaining time inside the clock
+        -- Number and label are stacked so the pair sits centred on the clock face
+        timeNumber =
+            translate 0 7
+                (centredText 0.19 white (show currentHP))
+
+        timeLabel =
+            translate 0 (-13)
+                (centredText 0.08 clockColour "TIME")
+
+        -- Position clock near top-left
+        hudX = -worldHalfWidth + 65
+        hudY = worldHalfHeight - 65
+
+    in translate hudX hudY
+        (pictures
+            [ clockBackground
+            , clockOutline
+            , clockFill
+            , clockTicks
+            , timeNumber
+            , timeLabel
+            ])
 
 
 -- Death's Trial HUD: countdown bar, seconds left and kills needed to escape
@@ -247,12 +345,39 @@ drawHellHUD world =
 centredText :: Float -> Color -> String -> Picture
 centredText size colour str =
     let
-        -- Each Gloss character is roughly 100 units wide and 100 tall before scaling
-        textWidth = fromIntegral (length str) * 100 * size
+        -- Real width of the text (letters have different widths), and roughly 100 tall, before scaling
+        textWidth = textWidthUnits str * size
         textHeight = 100 * size
 
     in translate (-textWidth / 2) (-textHeight / 2)
         (scale size size (color colour (Text str)))
+
+
+-- Width of a string in Gloss text units (before scaling)
+textWidthUnits :: String -> Float
+textWidthUnits = sum . map glyphWidth
+
+-- Width of one character in Gloss's built-in font (GLUT Roman), measured with GLUT's stringWidth
+-- Characters not in the table fall back to 100
+glyphWidth :: Char -> Float
+glyphWidth c =
+    case lookup c glyphWidths of
+        Just w  -> w
+        Nothing -> 100
+
+-- Widths for every printable character from ' ' to '~', in order
+glyphWidths :: [(Char, Float)]
+glyphWidths = zip [' ' .. '~']
+    [ 104, 26, 51, 79, 76, 96, 101, 13, 47, 47, 59, 97, 26, 100, 26, 82   -- space ! " # $ % & ' ( ) * + , - . /
+    , 77, 66, 77, 77, 80, 77, 73, 77, 77, 74                              -- 0 to 9
+    , 26, 26, 81, 97, 81, 73, 74                                          -- : ; < = > ? @
+    , 80, 83, 84, 85, 78, 78, 89, 89, 21, 59, 79, 71, 97                  -- A to M
+    , 88, 88, 85, 88, 82, 80, 71, 89, 81, 100, 72, 79, 73                 -- N to Z
+    , 46, 78, 46, 90, 104, 83                                             -- [ \ ] ^ _ `
+    , 66, 70, 68, 70, 68, 38, 70, 71, 28, 36, 62, 19, 123                 -- a to m
+    , 70, 71, 70, 70, 49, 62, 39, 71, 60, 80, 56, 66, 61                  -- n to z
+    , 41, 23, 41, 91                                                      -- { | } ~
+    ]
 
 
 -- Dark overlay with the Game Over message, drawn on top of everything
@@ -270,6 +395,66 @@ drawGameOver world
             , translate 0 (-40) (centredText 0.15 white "Press ENTER to restart")
             ]
     | otherwise = Blank
+
+-- Draw pause menu when the game is paused
+drawPauseScreen :: World -> Picture
+drawPauseScreen world
+    | gameState world == Paused =
+        let
+            gold = makeColor 1 0.8 0.3 1
+            pale = makeColor 0.8 0.78 0.85 1
+
+            -- Slowly pulse the resume instruction
+            pulse = (sin (worldTime world * 3) + 1) / 2
+            resumeColour = makeColor 1 1 1 (0.4 + 0.6 * pulse)
+
+            -- Where the player is, shown under the title
+            whereText =
+                case currentLevel world of
+                    VictoriaLevel -> "Victorian London"
+                    LimboLevel    -> "Limbo"
+                    HellLevel     -> "Hell - Layer " ++ show (hellLayer world)
+
+        in pictures
+            [ -- Dark overlay, slightly lighter than the menu so the frozen game shows through
+              color (makeColor 0.02 0.01 0.03 0.8)
+                  (rectangleSolid windowWidth windowHeight)
+
+              -- Title shadow
+            , translate 3 127
+                (centredText 0.4 (makeColor 0.2 0.1 0.05 1) "PAUSED")
+
+              -- Title
+            , translate 0 130
+                (centredText 0.4 gold "PAUSED")
+
+              -- Current dimension
+            , translate 0 80
+                (centredText 0.11 pale whereText)
+
+              -- Controls
+            , controlLine 30 "WASD" "Move"
+            , controlLine 0 "SPACE" "Attack"
+            , controlLine (-30) "F" "Dash"
+            , controlLine (-60) "R" "Rewind"
+            , controlLine (-90) "ESC" "Resume"
+
+              -- Resume instruction
+            , translate 0 (-160)
+                (centredText 0.15 resumeColour "Press ESC to resume")
+            ]
+    | otherwise = Blank
+
+
+-- One control line: key in gold on the left, action in white on the right
+-- (shared by the start screen and the pause screen)
+controlLine :: Float -> String -> String -> Picture
+controlLine y key action =
+    pictures
+        [ translate (-70) y (centredText 0.11 (makeColor 1 0.8 0.3 1) key)
+        , translate 70 y (centredText 0.11 white action)
+        ]
+
 
 -- Ending screen after defeating the boss, revealing the story's twist
 drawVictory :: World -> Picture
@@ -304,7 +489,6 @@ drawVictory world
             ]
     | otherwise = Blank
 
-
 -- Title screen shown when the game first opens
 drawStartScreen :: World -> Picture
 drawStartScreen world
@@ -313,33 +497,42 @@ drawStartScreen world
             gold = makeColor 1 0.8 0.3 1
             pale = makeColor 0.8 0.78 0.85 1
 
-            -- One control: key in gold on the left, action in white on the right
-            controlLine y key action = pictures
-                [ translate (-70) y (centredText 0.11 gold key)
-                , translate 70 y (centredText 0.11 white action)
-                ]
+            -- Slowly pulse the start instruction
+            pulse = (sin (worldTime world * 3) + 1) / 2
+            startColour = makeColor 1 1 1 (0.4 + 0.6 * pulse)
 
         in pictures
             [ -- Almost opaque so the title stands out over the paused map
-              color (makeColor 0.02 0.01 0.03 0.88) (rectangleSolid windowWidth windowHeight)
+              color (makeColor 0.02 0.01 0.03 0.88)
+                  (rectangleSolid windowWidth windowHeight)
+
+              -- Title shadow
+            , translate 3 187
+                (centredText 0.45 (makeColor 0.2 0.1 0.05 1) "CHRONOBOUND")
 
               -- Title
-            , translate 0 190 (centredText 0.45 gold "CHRONOBOUND")
+            , translate 0 190
+                (centredText 0.45 gold "CHRONOBOUND")
 
               -- Premise
-            , translate 0 125 (centredText 0.11 pale "Your time is your life.")
-            , translate 0 100 (centredText 0.11 pale "Kill to steal more... before it runs out.")
+            , translate 0 125
+                (centredText 0.11 pale "Your time is your life.")
+            , translate 0 100
+                (centredText 0.11 pale "Kill to steal more... before it runs out.")
 
               -- Controls
             , controlLine 40 "WASD" "Move"
             , controlLine 10 "SPACE" "Attack"
             , controlLine (-20) "F" "Dash"
             , controlLine (-50) "R" "Rewind"
+            , controlLine (-80) "ESC" "Pause"
 
               -- Start prompt
-            , translate 0 (-140) (centredText 0.16 white "Press ENTER to begin")
+            , translate 0 (-170)
+                (centredText 0.16 startColour "Press ENTER to begin")
             ]
     | otherwise = Blank
+
 
 -- Upgrade selection screen shown between Hell layers
 drawUpgradeScreen :: World -> Picture
@@ -438,13 +631,95 @@ drawRewindPreview world =
             let
                 -- Retrieve the oldest saved player position
                 (x, y) = snapshotPosition (last history)
-                -- Create the rewind marker
-                marker = pictures
-                    [ color (makeColor 0.4 0.85 1 1) (thickCircle 22 3)
-                    , color white (line [(0, 0), (0, 12)])
-                    , color white (line [(0, 0), (9, 0)])
+
+                t = worldTime world
+                rewindCyan alpha = makeColor 0.4 0.85 1 alpha
+
+                -- Gently pulse the ring's size and glow
+                pulse = (sin (t * 4) + 1) / 2
+                radius = 22 + 2 * pulse
+
+                -- Faint clock face
+                face = color (rewindCyan (0.12 + 0.08 * pulse)) (circleSolid radius)
+                ring = color (rewindCyan (0.7 + 0.3 * pulse)) (thickCircle radius 3)
+
+                -- 12 small tick marks around the edge
+                ticks = pictures
+                    [ rotate (fromIntegral i * 30)
+                        (color (rewindCyan 0.8) (line [(0, radius - 6), (0, radius - 2)]))
+                    | i <- [0 .. 11 :: Int]
                     ]
-            in translate x y marker
+
+                -- Hands spin anticlockwise: time running backwards
+                minuteHand = rotate (-(t * 360))
+                    (color white (line [(0, 0), (0, radius - 7)]))
+                hourHand = rotate (-(t * 30))
+                    (color white (line [(0, 0), (0, radius - 12)]))
+
+                centre = color white (circleSolid 1.5)
+
+            in translate x y (pictures [face, ring, ticks, hourHand, minuteHand, centre])
+
+-- How far through the rewind effect we are: 0 when it starts, 1 when it ends
+rewindEffectProgress :: World -> Float
+rewindEffectProgress world = 1 - rewindEffectTimer world / rewindEffectDuration
+
+-- Rewind effect in the game world: a streak from where the player was,
+-- and rings bursting out from where they landed
+drawRewindEffect :: World -> Picture
+drawRewindEffect world
+    | rewindEffectTimer world <= 0 = Blank
+    | otherwise =
+        let
+            progress = rewindEffectProgress world
+            fade = 1 - progress
+
+            (fromX, fromY) = rewindFrom world
+            (toX, toY) = position (player world)
+
+            rewindCyan alpha = makeColor 0.4 0.85 1 alpha
+
+            -- Streak: a band from the old position to the new one that thins and fades
+            dx = toX - fromX
+            dy = toY - fromY
+            len = max 1 (sqrt (dx * dx + dy * dy))
+            -- Unit vector at right angles to the streak, scaled to half its width
+            halfWidth = 10 * fade
+            (nx, ny) = (-dy / len * halfWidth, dx / len * halfWidth)
+            streak = color (rewindCyan (0.35 * fade))
+                (polygon
+                    [ (fromX + nx, fromY + ny)
+                    , (toX + nx, toY + ny)
+                    , (toX - nx, toY - ny)
+                    , (fromX - nx, fromY - ny)
+                    ])
+            streakCore = color (makeColor 1 1 1 (0.8 * fade))
+                (line [(fromX, fromY), (toX, toY)])
+
+            -- Afterimages left along the path
+            afterimages = pictures
+                [ translate (fromX + dx * k) (fromY + dy * k)
+                    (color (rewindCyan (0.4 * fade * (1 - k))) (circleSolid (14 * fade + 2)))
+                | k <- [0, 0.25, 0.5, 0.75]
+                ]
+
+            -- Two rings bursting outwards from the landing spot, the second slightly behind
+            burstRing delay =
+                let local = max 0 ((progress - delay) / (1 - delay))
+                in color (rewindCyan (0.9 * (1 - local)))
+                    (thickCircle (18 + 70 * local) (5 * (1 - local) + 1))
+            rings = translate toX toY (pictures [burstRing 0, burstRing 0.3])
+
+        in pictures [streak, afterimages, streakCore, rings]
+
+-- Quick cyan flash over the whole screen when the player rewinds (drawn with the HUD)
+drawRewindFlash :: World -> Picture
+drawRewindFlash world
+    | rewindEffectTimer world <= 0 = Blank
+    | otherwise =
+        let fade = 1 - rewindEffectProgress world
+        in color (makeColor 0.5 0.9 1 (0.3 * fade * fade))
+            (rectangleSolid windowWidth windowHeight)
 
 -- Draws a trail showing the player's previous positions
 drawRewindTrail :: World -> Picture
@@ -505,7 +780,6 @@ frameAtProgress anim progress =
         -- Convert progress into animation time = gets the frame we are at
         -- Multiplying percentage of frame we are at by total duration
         animationTime = safeProgress * totalDuration
-
     -- Show the last frame when finished, otherwise select the current frame
     in if safeProgress >= 1
         then last (animFrames anim)

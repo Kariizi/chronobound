@@ -183,6 +183,7 @@ enterLevel newLevel world =
         , playerHistory = []
         , projectiles = []
         , damageNumbers = []
+        , rewindEffectTimer = 0
 
         -- Store Hell trial values
         , hellTimeRemaining = newHellTime
@@ -336,6 +337,10 @@ checkHellTrial world =
 -- walkable says which world positions are walkable on the current map
 updateWorld :: Walkable -> Float -> World -> World
 updateWorld walkable dt world
+    -- Keep the clock running on the menu and pause screen so their text can pulse
+    | gameState world == Menu || gameState world == Paused =
+        world { worldTime = worldTime world + dt }
+    
     -- Return world with no updates
     | gameState world /= Playing = world
     | otherwise = updatePlayingWorld walkable dt world
@@ -410,4 +415,8 @@ updatePlayingWorld walkable dt world =
         worldWithTrialResult = checkHellTrial worldWithHellTimer
 
     -- Update mobs using the new player position
-    in worldWithTrialResult { worldTime = worldTime world + dt }
+    in worldWithTrialResult
+        { worldTime = worldTime world + dt
+        -- Fade out the rewind effect
+        , rewindEffectTimer = max 0 (rewindEffectTimer worldWithTrialResult - dt)
+        }

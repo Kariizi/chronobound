@@ -146,6 +146,10 @@ rewindPlayer world
                 in world
                     { player = rewoundPlayer
                     , playerHistory = []
+
+                    -- Start the rewind effect, remembering where the player jumped from
+                    , rewindEffectTimer = rewindEffectDuration
+                    , rewindFrom = position p
                     }
 
 -- Recording players snapshot

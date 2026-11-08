@@ -20,6 +20,7 @@ trackFor :: World -> Track
 trackFor world =
     case gameState world of
         Menu            -> MenuTheme
+        Paused          -> trackForLevel (currentLevel world)
         Playing         -> trackForLevel (currentLevel world)
         ChoosingUpgrade -> trackForLevel (currentLevel world)
         GameOver        -> Silence
