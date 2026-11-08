@@ -92,7 +92,7 @@ initialMob =
         , mobRadius = 15.0
         , mobAttackRange = 5.0
         , mobZone = TopRight
-        , mobSprite = "monster_1"
+        , mobSprite = "skeleton"
 
         -- Animation starts with no offset
         , mobAnimOffset = 0

@@ -83,18 +83,18 @@ tooClose :: (Float, Float) -> (Float, Float) -> Bool
 tooClose (x1, y1) (x2, y2) =
     (x2 - x1)^2 + (y2 - y1)^2 < 80^2
 
--- Enemy animation names used when spawning mobs
+-- Enemy character names used when spawning mobs (the animation type is added when drawing)
 enemySprites :: [String]
 enemySprites =
-    [ "bat_ghoul_breathe"
-    , "cultist_breathe"
-    , "ghost_breathe"
-    , "hooded_brute_breathe"
-    , "shadow_beast_breathe"
-    , "skeleton_breathe"
-    , "vampire_breathe"
-    , "wolf_black_breathe"
-    , "wolf_brown_breathe"
+    [ "bat_ghoul"
+    , "cultist"
+    , "ghost"
+    , "hooded_brute"
+    , "shadow_beast"
+    , "skeleton"
+    , "vampire"
+    , "wolf_black"
+    , "wolf_brown"
     ]
 
 characters :: [String]

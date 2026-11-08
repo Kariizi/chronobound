@@ -39,8 +39,14 @@ drawWorld sprites world =
                     -- Otherwise player is standing still
                     | otherwise = "breathe"
 
+                -- Player looks corrupted once they fall into Limbo or Hell
+                characterName = case currentLevel world of
+                    VictoriaLevel -> "player"
+                    LimboLevel    -> "player_corrupted"
+                    HellLevel     -> "player_corrupted"
+
                 -- Combine character name with animation type
-                animationName = "player_" ++ animationType
+                animationName = characterName ++ "_" ++ animationType
 
                 -- Retrieve the animation
                 animation = sprites M.! animationName
@@ -99,8 +105,8 @@ drawMob sprites time mob =
         -- Retrieve mob position
         (x, y) = mobPosition mob
 
-        -- Select animation frame with individual mob offset
-        art = frameAt (sprites M.! mobSprite mob)
+        -- Select animation frame with individual mob offset (breathe for now)
+        art = frameAt (sprites M.! (mobSprite mob ++ "_breathe"))
             (time + mobAnimOffset mob)
 
         s = 2
