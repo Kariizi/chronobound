@@ -10,8 +10,8 @@ import Model
 bossEnemy :: Mob
 bossEnemy = initialMob
     { mobSprite = "boss"
-    , mobHealth = 120
-    , mobMaxHealth = 120
+    , mobHealth = 200
+    , mobMaxHealth = 200
     , mobSpeed = 60
     , mobDamage = 15
     , mobRadius = 30
