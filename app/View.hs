@@ -81,7 +81,8 @@ drawWorld sprites world =
         damagePictures = map drawDamageNumber (damageNumbers world)
 
     -- Mobs at the back, damage numbers on top
-    in pictures (mobPictures ++ [playerPicture] ++ damagePictures)
+    in pictures
+        (mobPictures ++ [drawRewindTrail world, drawRewindPreview world, playerPicture] ++ damagePictures)
 
 
 -- How long a mob's attack animation plays after it hits (length of the attack GIF)
@@ -423,6 +424,55 @@ upgradeColour upgrade = case upgrade of
     DamageUpgrade _ -> makeColor 0.85 0.25 0.25 1  -- crimson
     SpeedUpgrade _  -> makeColor 0.45 0.8 0.85 1   -- pale teal
     HealthUpgrade _ -> makeColor 0.5 0.85 0.5 1    -- green
+
+-- Draws a marker showing where the player will rewind to
+drawRewindPreview :: World -> Picture
+drawRewindPreview world =
+    let
+        p = player world
+        history = playerHistory world
+    in
+        if rewindCooldownRemaining p > 0 || null history
+            then Blank
+        else
+            let
+                -- Retrieve the oldest saved player position
+                (x, y) = snapshotPosition (last history)
+                -- Create the rewind marker
+                marker = pictures
+                    [ color (makeColor 0.4 0.85 1 1) (thickCircle 22 3)
+                    , color white (line [(0, 0), (0, 12)])
+                    , color white (line [(0, 0), (9, 0)])
+                    ]
+            in translate x y marker
+
+-- Draws a trail showing the player's previous positions
+drawRewindTrail :: World -> Picture
+drawRewindTrail world =
+    let
+        p = player world
+        history = playerHistory world
+
+        -- Keep every 6th snapshot so there aren't too many dots
+        snapshots =
+            [ snapshot
+            | (index, snapshot) <- zip [0..] history
+            , index `mod` 6 == 0
+            ]
+
+        -- Draw a dot at each saved position
+        drawDot snapshot =
+            let
+                (x, y) = snapshotPosition snapshot
+
+            in translate x y
+                (color (makeColor 0.4 0.85 1 0.65)
+                    (circleSolid 3))
+
+    in
+        if rewindCooldownRemaining p > 0 || null history
+            then Blank
+            else pictures (map drawDot snapshots)
 
 
 -- Which frame of an animation to show at time t (loops forever)
