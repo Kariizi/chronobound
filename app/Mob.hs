@@ -1,7 +1,6 @@
 module Mob where
 import Model
 import Player (isDashing)
-import Boss (isBoss)
 
 --- Move one mob towards its slot on the ring around the player
 moveMob :: Float -> Float -> Player -> Mob -> Mob
@@ -43,47 +42,57 @@ moveMob dt slotAngle p mob =
         mob { mobPosition = (finalX, finalY) }
        
 
+-- Move mobs based on their current attack state
 moveMobs :: Walkable -> Float -> World -> World
 moveMobs walkable dt world =
     let
         p = player world
         playerZone = zoneOf (position p)
 
+        -- Give each mob a different position around the player
         slotAngle i = fromIntegral (i :: Int) * 2.39996
 
-        -- Keep the mob where it was if its new spot isn't walkable
+        -- Stop mobs moving through walls
         safely mob moved =
             moved { mobPosition = resolveMove walkable (mobPosition mob) (mobPosition moved) }
 
-        updateMob (i, currentMob) =
-            let
-                -- The boss follows the player into every zone so it never slows down
-                mob =
-                    if isBoss currentMob
-                        then currentMob { mobZone = playerZone }
-                        else currentMob
-            in case mobAction mob of
-                -- Stands still while the warning shows
-                WindingUp _ -> mob
+        -- Move mobs depending on their attack state
+        updateMob (i, mob) =
+            case mobAction mob of
 
-                -- Charges in a straight line in the direction it locked in
-                Lunging _ (dirX, dirY) ->
-                    let (mx, my) = mobPosition mob
-                        lunged = mob { mobPosition = ( mx + dirX * mobLungeSpeed * dt
-                                                     , my + dirY * mobLungeSpeed * dt ) }
-                    in safely mob lunged
+                -- Stay still before attacking
+                WindingUp _ ->
+                    mob
 
-                -- Normal chasing towards its slot around the player
+                -- Lunge in the direction calculated after winding up
+                Lunging _ (dx, dy) ->
+                    let
+                        (mx, my) = mobPosition mob
+
+                        -- Calculate the mob's new position
+                        newX = mx + dx * mobLungeSpeed * dt
+                        newY = my + dy * mobLungeSpeed * dt
+
+                        moved = mob { mobPosition = (newX, newY) }
+
+                    in safely mob moved
+
+                -- Follow the player, moving slower in other zones
                 Chasing
-                    | mobZone mob == playerZone -> safely mob (moveMob dt (slotAngle i) p mob)
-                    | otherwise                 -> safely mob (moveMob (dt * otherZoneSpeedFactor) (slotAngle i) p mob)
+                    | mobZone mob == playerZone ->
+                        safely mob (moveMob dt (slotAngle i) p mob)
+
+                    | otherwise ->
+                        safely mob (moveMob (dt * otherZoneSpeedFactor) (slotAngle i) p mob)
 
         oldMobs = mobs world
         newMobs = map updateMob (zip [0 ..] oldMobs)
+
+        -- Stop mobs overlapping
         separatedMobs = resolveAllCollisions oldMobs newMobs
-    in
-        world { mobs = separatedMobs }
-        
+
+    in world { mobs = separatedMobs }
+
 -- Check collisions for all monsters
 resolveAllCollisions :: [Mob] -> [Mob] -> [Mob]
 resolveAllCollisions oldMobs newMobs =
@@ -145,18 +154,33 @@ tickCooldown dt mob =
     mob { mobAttackCooldown = max 0 (mobAttackCooldown mob - dt) }
 
 -- One mob's attack: returns the updated mob and the damage it dealt
--- Damage only lands while lunging; hitting ends the lunge so it can only hit once
+-- resolveAttack :: Player -> Mob -> (Mob, Int)
+-- resolveAttack p mob
+--     | canHitPlayer p mob = (mob { mobAttackCooldown = mobAttackInterval mob }, mobDamage mob)
+--     | otherwise          = (mob, 0)
+
+-- One mob's attack: returns the updated mob and the damage it dealt
 resolveAttack :: Player -> Mob -> (Mob, Int)
 resolveAttack p mob =
     case mobAction mob of
         Lunging _ _
-            | touchingPlayer && not (isDashing p) ->
-                ( mob { mobAction = Chasing, mobAttackCooldown = mobAttackInterval mob }
-                , mobDamage mob )
+            -- playerRadius + mobRadius = their centre to edge added to get units distance they cover
+            -- if distance to player is less it means they collide
+            | distanceToPlayer p mob <= playerRadius + mobRadius mob 
+                && not (isDashing p) ->
+
+                -- Return the mob to chasing and reset its attack cooldown
+                ( mob
+                    { mobAction = Chasing
+                    , mobAttackCooldown = mobAttackInterval mob
+                    }
+                -- Return the damage dealt to the player
+                , mobDamage mob
+                )
+
+        -- No damage if the mob isn't lunging or hasn't hit the player
         _ -> (mob, 0)
-  where
-    touchingPlayer =
-        distanceToPlayer p mob <= playerRadius + mobRadius mob + mobAttackRange mob
+
 
 -- Changing the Mobs Attack:
 updateMobAttack :: Float -> Player -> Mob -> Mob 
@@ -208,7 +232,6 @@ mobAttacks dt world =
     let
         p = player world
         (px, py) = position p
-        -- Count cooldowns down, then move each mob through chase -> windup -> lunge
         ticked = map (updateMobAttack dt p . tickCooldown dt) (mobs world)
         results = map (resolveAttack p) ticked
         totalDamage = sum (map snd results)
