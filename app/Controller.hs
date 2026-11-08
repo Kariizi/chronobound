@@ -6,6 +6,7 @@ import Model
 import Player
 import Combat
 import Mob
+import Spawn (spawnAllZones)
 
 -- Handles keyboard events
 handleInput :: Event -> World -> World
@@ -127,37 +128,55 @@ updateHellTimer dt world =
     in world { hellTimeRemaining = newTime }
 
 -- Enter a new dimension
-enterLevel :: Level -> World -> World 
-enterLevel newLevel world = 
-    let 
-        p = player world 
+enterLevel :: Level -> World -> World
+enterLevel newLevel world =
+    let
+        -- Retrieve the player
+        p = player world
+
+        -- Reset the player's position
         updatedPlayer = p { position = (0, 0) }
 
+        -- Generate new mobs using the world's current random generator
+        -- 3 mobs per zone = 12 mobs in total
+        (newMobs, updatedGenerator) =
+            spawnAllZones 3 newLevel (rng world)
+
+        -- Check whether we're entering Hell
         enteringHell = newLevel == HellLevel
 
-        newHellTime = 
-            if enteringHell 
+        -- Reset the timer only when entering Hell
+        newHellTime =
+            if enteringHell
                 then hellTrialDuration
-                else hellTimeRemaining world 
-        
-        newHellKills = 
-            if enteringHell 
-                then 0
-                else hellKills world 
+                else hellTimeRemaining world
 
-    in world 
+        -- Reset Hell kills only when entering Hell
+        newHellKills =
+            if enteringHell
+                then 0
+                else hellKills world
+
+    in world
         { currentLevel = newLevel
         , player = updatedPlayer
-        
-        -- Clear previous dimension history
+
+        -- Replace enemies from the previous dimension
+        , mobs = newMobs
+
+        -- Save the generator returned by spawnAllZones
+        , rng = updatedGenerator
+
+        -- Clear previous dimension's information
         , playerHistory = []
         , projectiles = []
         , damageNumbers = []
 
-          -- Store the trial values
+        -- Store Hell trial values
         , hellTimeRemaining = newHellTime
         , hellKills = newHellKills
         }
+
 
 
 updateDamageNumbers :: Float -> [DamageNumber] -> [DamageNumber]

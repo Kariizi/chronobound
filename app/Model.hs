@@ -5,6 +5,8 @@
 
 module Model where
 
+import System.Random (StdGen, mkStdGen)
+
 -- Storing the game world:
 data World = World
     { player :: Player
@@ -19,6 +21,8 @@ data World = World
     , hellTimeRemaining :: Float
     , hellKills :: Int 
     , gameState :: GameState
+    -- For generating Mobs
+    , rng :: StdGen
     } deriving (Show, Eq)
 
 -- Storing information about the player
@@ -244,4 +248,6 @@ initialWorld =
         , hellTimeRemaining = hellTrialDuration
         , hellKills = 0
         , gameState = Playing
+        -- For generating Mobs
+        , rng = mkStdGen 0
         }
