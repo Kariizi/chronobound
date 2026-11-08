@@ -2,7 +2,7 @@ import Graphics.Gloss.Interface.Pure.Game
 import Model
 import View
 import Controller
-import System.Random (randomRIO)
+import System.Random (randomRIO, newStdGen)
 import qualified Victoria
 import qualified Limbo
 import qualified Hell
@@ -146,8 +146,11 @@ main = do
     -- Spawn mobs in each zone
     startingMobs <- concat <$> mapM (spawnZoneMobs 2) [minBound .. maxBound]
 
-    -- Initialise the world with spawned mobs
-    let startingWorld = initialWorld { mobs = startingMobs }
+    -- Creates generator for mob spawning
+    generator <- newStdGen
+
+    -- Initialise the world with spawned mobs 
+    let startingWorld = initialWorld { mobs = startingMobs, rng = generator }
 
     -- Load all three maps
     maps <- Maps
