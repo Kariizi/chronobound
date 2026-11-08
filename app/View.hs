@@ -8,6 +8,7 @@ import Mob (distanceToPlayer)
 import qualified Data.Map.Strict as M
 import MapArt
 import Data.Fixed (mod')
+import Boss (isBoss)
 
 -- Drawing the world
 drawWorld :: M.Map String Animation -> World -> Picture
@@ -342,6 +343,7 @@ drawTimeClock world =
 
 
 -- Death's Trial HUD: countdown bar, seconds left and kills needed to escape
+-- On the boss layer the kills text is replaced by the boss's health bar
 drawHellHUD :: World -> Picture
 drawHellHUD world =
     let
@@ -350,6 +352,7 @@ drawHellHUD world =
 
         currentLayer = hellLayer world
         requiredKills = requiredKillsFor currentLayer
+        onBossLayer = currentLayer == finalHellLayer
 
         -- Fraction of the trial time remaining (0 to 1)
         timeFraction = max 0 (min 1 (timeLeft / hellTrialDuration))
@@ -370,7 +373,7 @@ drawHellHUD world =
 
         -- Title
         titleText =
-            if currentLayer == finalHellLayer
+            if onBossLayer
                 then "THE CLOCKMAKER"
                 else "DEATH'S TRIAL - LAYER " ++ show currentLayer
 
@@ -384,17 +387,57 @@ drawHellHUD world =
         barFill = translate (-(barWidth - fillWidth) / 2) 0
             (color barColour (rectangleSolid fillWidth barHeight))
 
-        -- Seconds left and kill progress underneath the bar
-        infoText = "KILLS " ++ show kills ++ " / " ++ show requiredKills
-            ++ "    " ++ show (ceiling timeLeft :: Int) ++ "s"
+        -- Seconds left, plus kill progress on normal layers only
+        secondsText = show (ceiling timeLeft :: Int) ++ "s"
+        infoText
+            | onBossLayer = secondsText
+            | otherwise   = "KILLS " ++ show kills ++ " / " ++ show requiredKills
+                                ++ "    " ++ secondsText
         info = centredText 0.12 white infoText
+
+        -- Boss health bar (only drawn on the boss layer, once the boss exists)
+        bossBar =
+            case filter isBoss (mobs world) of
+                (boss : _) | onBossLayer ->
+                    let
+                        bossBarWidth = 300
+                        bossBarHeight = 14
+
+                        hpFraction = max 0 (min 1
+                            (fromIntegral (mobHealth boss) / fromIntegral (mobMaxHealth boss)))
+
+                        -- Gold normally, bright orange-red once it is below half health
+                        enraged = mobHealth boss * 2 <= mobMaxHealth boss
+                        bossColour
+                            | enraged   = makeColor 1 0.35 0.1 1
+                            | otherwise = makeColor 1 0.8 0.3 1
+
+                        bossFillWidth = bossBarWidth * hpFraction
+
+                        bossBackground = color (makeColor 0.12 0.08 0.02 0.85)
+                            (rectangleSolid bossBarWidth bossBarHeight)
+                        bossFill = translate (-(bossBarWidth - bossFillWidth) / 2) 0
+                            (color bossColour (rectangleSolid bossBarWidth' bossBarHeight))
+                        bossBarWidth' = bossFillWidth
+                        bossBorder = color (makeColor 0.9 0.75 0.4 1)
+                            (rectangleWire bossBarWidth bossBarHeight)
+
+                        hpText = centredText 0.09 white
+                            (show (mobHealth boss) ++ " / " ++ show (mobMaxHealth boss))
+                    in pictures
+                        [ bossBackground
+                        , bossFill
+                        , bossBorder
+                        , translate 0 (-18) hpText
+                        ]
+                _ -> Blank
 
     in translate 0 panelY (pictures
         [ title
         , translate 0 (-22) (pictures [barBackground, barFill])
         , translate 0 (-45) info
+        , translate 0 (-68) bossBar
         ])
-
 
 -- Draw text roughly centred on the origin (Gloss draws text from its bottom-left corner)
 centredText :: Float -> Color -> String -> Picture

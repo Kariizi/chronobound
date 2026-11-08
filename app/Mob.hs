@@ -143,8 +143,7 @@ distanceToPlayer p mob =
 -- Can this mob hit the player right now?
 canHitPlayer :: Player -> Mob -> Bool
 canHitPlayer p mob =
-    mobZone mob == zoneOf (position p)
-    && mobAttackCooldown mob <= 0
+    mobAttackCooldown mob <= 0
     && distanceToPlayer p mob <= playerRadius + mobRadius mob + mobAttackRange mob
     && not (isDashing p)
 
@@ -187,11 +186,10 @@ updateMobAttack :: Float -> Player -> Mob -> Mob
 updateMobAttack dt p mob =
     case mobAction mob of 
         Chasing -> 
-            if (mobZone mob == zoneOf (position p)
-                && distanceToPlayer p mob <= playerRadius + mobRadius mob + mobAttackRange mob
-                && mobAttackCooldown mob <= 0)
+            if distanceToPlayer p mob <= playerRadius + mobRadius mob + mobAttackRange mob
+                && mobAttackCooldown mob <= 0
                 then mob { mobAction = WindingUp mobWindupTime }
-                else mob 
+                else mob
             
         WindingUp timeLeft ->
             let
