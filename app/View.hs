@@ -592,25 +592,111 @@ drawStartScreen :: World -> Picture
 drawStartScreen world
     | gameState world == Menu =
         let
+            t = worldTime world
             gold = makeColor 1 0.8 0.3 1
             pale = makeColor 0.8 0.78 0.85 1
+            faintGold a = makeColor 1 0.8 0.3 a
 
-            -- Slowly pulse the start instruction
-            pulse = (sin (worldTime world * 3) + 1) / 2
+            -- Slowly pulse the start instruction and the title glow
+            pulse = (sin (t * 3) + 1) / 2
+            glow = (sin (t * 1.5) + 1) / 2
             startColour = makeColor 1 1 1 (0.4 + 0.6 * pulse)
+
+            -- Big faint clock behind everything, the second hand ticks once a second
+            clockR = 250
+            bigClock =
+                pictures
+                    [ color (faintGold 0.06) (circleSolid clockR)
+                    , color (faintGold 0.18) (thickCircle clockR 3)
+                    , color (faintGold 0.10) (thickCircle (clockR - 18) 1)
+                      -- 60 small ticks, every 5th one bigger
+                    , pictures
+                        [ rotate (fromIntegral i * 6)
+                            (color (faintGold (if i `mod` 5 == 0 then 0.35 else 0.15))
+                                (line [(0, clockR - (if i `mod` 5 == 0 then 22 else 10)), (0, clockR - 4)]))
+                        | i <- [0 .. 59 :: Int]
+                        ]
+                      -- Hour hand (slow), minute hand (medium), second hand (ticks)
+                    , rotate (t * 3)
+                        (color (faintGold 0.25) (polygon [(-4, 0), (4, 0), (0, clockR * 0.5)]))
+                    , rotate (t * 20)
+                        (color (faintGold 0.25) (polygon [(-3, 0), (3, 0), (0, clockR * 0.75)]))
+                    , rotate (fromIntegral (floor t :: Int) * 6)
+                        (color (makeColor 0.9 0.2 0.2 0.4) (line [(0, -20), (0, clockR * 0.85)]))
+                    , color (faintGold 0.4) (circleSolid 6)
+                    ]
+
+            -- Sand grains drifting upwards, like an hourglass turned the wrong way
+            sand =
+                pictures
+                    [ let fi = fromIntegral i :: Float
+                          x = (fi * 137.5) `mod'` windowWidth - worldHalfWidth
+                          speed = 15 + (fi * 7.3) `mod'` 25
+                          y = (t * speed + fi * 53) `mod'` windowHeight - worldHalfHeight
+                          sway = sin (t + fi) * 8
+                          -- Fade in at the bottom and out at the top
+                          a = 0.5 * sin (pi * (y + worldHalfHeight) / windowHeight)
+                          size = 1 + (fi * 3.1) `mod'` 2
+                      in translate (x + sway) y (color (faintGold a) (circleSolid size))
+                    | i <- [0 .. 49 :: Int]
+                    ]
+
+            -- Title with a soft pulsing glow behind it
+            titleY = 190
+            titleGlow =
+                pictures
+                    [ translate dx (titleY + dy)
+                        (centredText 0.45 (faintGold (0.08 + 0.08 * glow)) "CHRONOBOUND")
+                    | (dx, dy) <- [(-3, 0), (3, 0), (0, -3), (0, 3), (-2, -2), (2, 2)]
+                    ]
+
+            -- Small diamond ornament
+            diamond x y = translate x y (color gold (polygon [(0, 5), (5, 0), (0, -5), (-5, 0)]))
+
+            -- Line - diamond - line divider under the title
+            divider y =
+                pictures
+                    [ color (faintGold 0.6) (line [(-200, y), (-15, y)])
+                    , color (faintGold 0.6) (line [(15, y), (200, y)])
+                    , diamond 0 y
+                    , diamond (-205) y
+                    , diamond 205 y
+                    ]
+
+            -- Framed panel behind the controls
+            panel =
+                translate 0 (-20)
+                    (pictures
+                        [ color (makeColor 0.05 0.03 0.07 0.85) (rectangleSolid 280 170)
+                        , color (faintGold 0.5) (rectangleWire 280 170)
+                        , color (faintGold 0.2) (rectangleWire 270 160)
+                        ])
+
+            -- Arrows that slide in and out around the start prompt
+            arrowOffset = 150 + 8 * sin (t * 3)
+            promptY = -170
+            arrows =
+                pictures
+                    [ translate (-arrowOffset) promptY (centredText 0.16 startColour ">")
+                    , translate arrowOffset promptY (centredText 0.16 startColour "<")
+                    ]
 
         in pictures
             [ -- Almost opaque so the title stands out over the paused map
               color (makeColor 0.02 0.01 0.03 0.88)
                   (rectangleSolid windowWidth windowHeight)
 
-              -- Title shadow
-            , translate 3 187
-                (centredText 0.45 (makeColor 0.2 0.1 0.05 1) "CHRONOBOUND")
+            , bigClock
+            , sand
 
-              -- Title
-            , translate 0 190
+              -- Title glow, shadow, then the title itself
+            , titleGlow
+            , translate 3 (titleY - 3)
+                (centredText 0.45 (makeColor 0.2 0.1 0.05 1) "CHRONOBOUND")
+            , translate 0 titleY
                 (centredText 0.45 gold "CHRONOBOUND")
+
+            , divider 150
 
               -- Premise
             , translate 0 125
@@ -619,6 +705,7 @@ drawStartScreen world
                 (centredText 0.11 pale "Kill to steal more... before it runs out.")
 
               -- Controls
+            , panel
             , controlLine 40 "WASD" "Move"
             , controlLine 10 "SPACE" "Attack"
             , controlLine (-20) "F" "Dash"
@@ -626,7 +713,8 @@ drawStartScreen world
             , controlLine (-80) "ESC" "Pause"
 
               -- Start prompt
-            , translate 0 (-170)
+            , arrows
+            , translate 0 promptY
                 (centredText 0.16 startColour "Press ENTER to begin")
             ]
     | otherwise = Blank
