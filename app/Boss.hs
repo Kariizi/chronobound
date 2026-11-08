@@ -1,0 +1,45 @@
+-- Everything about the final boss (the Clockmaker): its stats, where it spawns,
+-- and later its special moves
+
+module Boss where
+
+import Model
+
+-- The boss's stats, based on initialMob
+-- (player melee does 3 damage, so mobHealth / 3 = hits needed)
+bossEnemy :: Mob
+bossEnemy = initialMob
+    { mobSprite = "boss"
+
+    -- 120 HP = 40 hits
+    , mobHealth = 120
+    , mobMaxHealth = 120
+
+    -- Slower than a normal mob (80) so the player can keep their distance
+    , mobSpeed = 60
+
+    -- Hurts much more than a tank (10)
+    , mobDamage = 15
+
+    -- Bigger body and slightly longer reach than a tank (20 and 8)
+    , mobRadius = 30
+    , mobAttackRange = 12
+
+    -- Seconds between attacks
+    , mobAttackInterval = 1.2
+    }
+
+-- Is this mob the boss?
+isBoss :: Mob -> Bool
+isBoss mob = mobSprite mob == "boss"
+
+-- Where the boss appears, away from the player (who starts at (0, 0))
+bossSpawnPosition :: (Float, Float)
+bossSpawnPosition = (0, 180)
+
+-- The boss placed in the arena, with its zone matching where it stands
+spawnBoss :: Mob
+spawnBoss = bossEnemy
+    { mobPosition = bossSpawnPosition
+    , mobZone = zoneOf bossSpawnPosition
+    }

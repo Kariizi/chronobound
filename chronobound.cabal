@@ -76,6 +76,7 @@ executable chronobound
         Hell
         Spawn
         Audio
+        Boss
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
