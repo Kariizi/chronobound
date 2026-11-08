@@ -103,6 +103,32 @@ normaliseVelocity (vx, vy) =
         then (0, 0)
         else (vx / magnitude, vy / magnitude)
 
+-- Level Functionality: Switching between Levels and Entering Dimensions 
+levelDependingOnHP :: Level -> Int -> Level 
+levelDependingOnHP level health 
+    | level == VictoriaLevel && health < 30 = LimboLevel
+    | level == LimboLevel && health <= 0 = HellLevel
+    | level == LimboLevel && health > 40 = VictoriaLevel
+    | level == HellLevel && health >= 10 = LimboLevel
+    | otherwise = level 
+
+-- Enter a new dimension
+enterLevel :: Level -> World -> World 
+enterLevel newLevel world = 
+    let 
+        p = player world 
+        updatedPlayer = p { position = (0, 0) }
+
+    in world 
+        { currentLevel = newLevel
+        , player = updatedPlayer
+        
+        -- Clear previous dimension history
+        , playerHistory = []
+        , projectiles = []
+        , damageNumbers = []
+        }
+
 updateDamageNumbers :: Float -> [DamageNumber] -> [DamageNumber]
 updateDamageNumbers dt numbers =
     let
@@ -178,5 +204,18 @@ updateWorld dt world =
         -- Update world with snapshots 
         worldWithSnapshot = recordPlayerSnapshot dt worldWithMobs
 
+        -- Determine dimension player should be in 
+        newLevel = levelDependingOnHP
+            (currentLevel worldWithSnapshot)
+            (health (player worldWithSnapshot))
+
+        worldWithLevel =
+            -- Compare new level with current
+            if newLevel /= currentLevel worldWithSnapshot
+                -- If different enter the new dimension and reset level-specific data
+                then enterLevel newLevel worldWithSnapshot
+                -- Otherwise keep the existing world unchanged
+                else worldWithSnapshot
+
     -- Update mobs using the new player position
-    in worldWithSnapshot { worldTime = worldTime world + dt }
+    in worldWithLevel { worldTime = worldTime world + dt }

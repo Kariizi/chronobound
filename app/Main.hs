@@ -8,9 +8,6 @@ import qualified Limbo
 import qualified Hell
 import MapArt
 
--- Which map is showing. Temporary: press 1, 2 or 3 to switch while we integrate the maps.
-data Level = VictoriaLevel | LimboLevel | HellLevel
-
 data Maps = Maps
     { victoriaMap :: Victoria.Victoria
     , limboMap    :: Limbo.Limbo
@@ -51,11 +48,11 @@ drawLevel ms level (px, py) =
 
     in scale mapZoom mapZoom picture
 
-handleLevelInput :: Event -> (Level, World) -> (Level, World)
-handleLevelInput (EventKey (Char '1') Down _ _) (_, world) = (VictoriaLevel, world)
-handleLevelInput (EventKey (Char '2') Down _ _) (_, world) = (LimboLevel, world)
-handleLevelInput (EventKey (Char '3') Down _ _) (_, world) = (HellLevel, world)
-handleLevelInput event (level, world) = (level, handleInput event world)
+handleLevelInput :: Event -> World -> World
+handleLevelInput (EventKey (Char '1') Down _ _) world = world { currentLevel = VictoriaLevel }
+handleLevelInput (EventKey (Char '2') Down _ _) world = world { currentLevel = LimboLevel }
+handleLevelInput (EventKey (Char '3') Down _ _) world = world { currentLevel = HellLevel }
+handleLevelInput event world = handleInput event world 
 
 zoneBounds :: Zone -> (Float, Float, Float, Float)
 zoneBounds TopLeft     = (-maxX, -lineMargin,  lineMargin,  maxY)
@@ -118,12 +115,16 @@ spawnZoneMobs n zone = do
             , mobAnimOffset = offset
             }
 
+
 main :: IO ()
 main = do
+    -- Spawn mobs in each zone
     startingMobs <- concat <$> mapM (spawnZoneMobs 2) [minBound .. maxBound]
 
+    -- Initialise the world with spawned mobs
     let startingWorld = initialWorld { mobs = startingMobs }
 
+    -- Load all three maps
     maps <- Maps
         <$> Victoria.loadVictoria "app/assets/victoria"
         <*> Limbo.loadLimbo "app/assets/limbo"
@@ -149,21 +150,28 @@ main = do
         (InWindow "Chronobound" (round windowWidth, round windowHeight) (100, 100))
         black
         60
-        (VictoriaLevel, startingWorld)
-        (\(level, world) ->
-        let
-            -- Retrieves player's position
-            (px, py) = position (player world)
+        
+        startingWorld
 
-        in pictures
-            [ -- Draw map relative to player position
-            drawLevel maps level (px, py)
+        -- Draw game world
+        (\world ->
+            let
+                -- Retrieves player's position
+                (px, py) = position (player world)
 
-            -- Shift game layer in opposite direction
-            , translate (-px) (-py) (drawWorld sprites world)
-            
-            -- Draw HUD without camera translation
-            , drawHUD world
-            ])
+            in pictures
+                [ -- Draw the map based on the level stored in World
+                  drawLevel maps (currentLevel world) (px, py)
+
+                  -- Shift game layer in opposite direction
+                , translate (-px) (-py) (drawWorld sprites world)
+
+                  -- Draw HUD without camera translation
+                , drawHUD world
+                ])
+
+        -- Handle movement, attacks, dash, rewind and level debug keys
         handleLevelInput
-        (\dt (level, world) -> (level, updateWorld dt world))
+
+        -- Update game world every frame
+        updateWorld

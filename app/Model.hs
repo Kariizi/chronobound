@@ -14,6 +14,7 @@ data World = World
     , damageNumbers :: [DamageNumber]
     , playerHistory :: [PlayerSnapshot]
     , worldTime :: Float
+    , currentLevel :: Level
     } deriving (Show, Eq)
 
 -- Storing information about the player
@@ -72,6 +73,13 @@ data Mob = Mob
     -- Seconds between mob attacks
     , mobAttackInterval :: Float
     } deriving (Show, Eq)
+
+-- Different dimensions
+data Level 
+    = VictoriaLevel
+    | LimboLevel
+    | HellLevel
+    deriving (Show, Eq)
 
 initialMob :: Mob
 initialMob =
@@ -213,4 +221,5 @@ initialWorld =
         , damageNumbers = []
         , playerHistory = []
         , worldTime = 0
+        , currentLevel = VictoriaLevel
         }
