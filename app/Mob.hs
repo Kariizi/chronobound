@@ -1,6 +1,7 @@
 module Mob where
 import Model
 import Player (isDashing)
+import Boss (isBoss)
 
 --- Move one mob towards its slot on the ring around the player
 moveMob :: Float -> Float -> Player -> Mob -> Mob
@@ -54,8 +55,14 @@ moveMobs walkable dt world =
         safely mob moved =
             moved { mobPosition = resolveMove walkable (mobPosition mob) (mobPosition moved) }
 
-        updateMob (i, mob) =
-            case mobAction mob of
+        updateMob (i, currentMob) =
+            let
+                -- The boss follows the player into every zone so it never slows down
+                mob =
+                    if isBoss currentMob
+                        then currentMob { mobZone = playerZone }
+                        else currentMob
+            in case mobAction mob of
                 -- Stands still while the warning shows
                 WindingUp _ -> mob
 

@@ -6,6 +6,7 @@ import Player
 import Combat
 import Mob
 import Spawn (spawnAllZones)
+import Boss (spawnBoss, moveBoss)
 
 -- Handles keyboard events
 handleInput :: Event -> World -> World
@@ -140,10 +141,11 @@ enterLevel newLevel world =
         -- Reset the player's position
         updatedPlayer = p { position = (0, 0) }
 
-        -- Generate new mobs using the world's current random generator
-        -- 3 mobs per zone = 12 mobs in total
+        -- new mobs generated using random gen, 3 mobs per zone = 12 mobs in total
         (newMobs, updatedGenerator) =
-            spawnAllZones 3 newLevel (rng world)
+            if newLevel == HellLevel && (newHellLayer == finalHellLayer)
+                then ([spawnBoss], rng world)
+                else spawnAllZones 3 newLevel (rng world)
 
         -- Check whether we're entering Hell
         enteringHell = newLevel == HellLevel
@@ -390,7 +392,31 @@ updatePlayingWorld walkable dt world =
         worldWithNumbers = worldWithPlayer
             { damageNumbers = updatedNumbers }
 
-        worldWithMobs = mobAttacks dt (moveMobs walkable dt worldWithNumbers)
+        
+        -- Move the boss separately on the final Hell layer
+        worldAfterMovement =
+            if currentLevel worldWithNumbers == HellLevel
+                && hellLayer worldWithNumbers == finalHellLayer
+                then
+                    let
+                        p = player worldWithNumbers
+                        -- Move the boss and prevent it going through walls
+                        moveOneBoss boss =
+                            let
+                                moved = moveBoss dt p boss
+                                safePosition = resolveMove walkable
+                                    (mobPosition boss)
+                                    (mobPosition moved)
+                            in moved { mobPosition = safePosition }
+
+                    in worldWithNumbers
+                        { mobs = map moveOneBoss (mobs worldWithNumbers) }
+
+                -- Normal enemies use their usual movement
+                else moveMobs walkable dt worldWithNumbers
+
+        -- Update mob attack states and check damage
+        worldWithMobs = mobAttacks dt worldAfterMovement
 
         -- Update world with snapshots 
         worldWithSnapshot = recordPlayerSnapshot dt worldWithMobs
