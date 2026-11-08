@@ -290,3 +290,25 @@ strengthenMob layer mob =
         , mobSpeed = newSpeed
         , mobAttackInterval = newAttackInterval
         }
+
+
+-- Hell difficulty: a fixed table per layer instead of the Victoria formula,
+-- so Hell can be tuned without touching Victoria's wave scaling
+strengthenHellMob :: Int -> Mob -> Mob
+strengthenHellMob layer mob =
+    let
+        -- (extra HP as a fraction, extra damage, extra speed as a fraction, attack interval multiplier)
+        (hpBonus, damageBonus, speedBonus, intervalFactor) =
+            case layer of
+                1 -> (0.25, 2, 0.00, 1.0)
+                2 -> (0.75, 4, 0.10, 0.9)
+                _ -> (1.00, 6, 0.20, 0.8)   -- layer 3 and above
+
+        newHealth = round (fromIntegral (mobMaxHealth mob) * (1 + hpBonus))
+    in mob
+        { mobHealth = newHealth
+        , mobMaxHealth = newHealth
+        , mobDamage = mobDamage mob + damageBonus
+        , mobSpeed = mobSpeed mob * (1 + speedBonus)
+        , mobAttackInterval = max 0.4 (mobAttackInterval mob * intervalFactor)
+        }

@@ -5,8 +5,8 @@ import Model
 import Player
 import Combat
 import Mob
-import Spawn (spawnAllZones, respawnIfCleared, unstickMobs, strengthenMob)
-import Boss (spawnBoss, moveBoss)
+import Spawn (spawnAllZones, respawnIfCleared, unstickMobs, strengthenMob, strengthenHellMob )
+import Boss (spawnBoss, moveBoss, enrageBoss)
 
 -- Handles keyboard events
 handleInput :: Event -> World -> World
@@ -149,7 +149,7 @@ enterLevel newLevel world =
             else if newLevel == HellLevel
                 then
                     let (hellMobs, generator) = spawnAllZones 3 newLevel (rng world)
-                    in (map (strengthenMob newHellLayer) hellMobs, generator)
+                    in (map (strengthenHellMob newHellLayer) hellMobs, generator)
             -- Coming back to Victoria keeps the wave difficulty the player reached
             else if newLevel == VictoriaLevel
                 then
@@ -424,11 +424,12 @@ updatePlayingWorld walkable dt world =
                         -- Move the boss and prevent it going through walls
                         moveOneBoss boss =
                             let
-                                moved = moveBoss dt p boss
+                                moved = moveBoss dt p (enrageBoss boss)
                                 safePosition = resolveMove walkable
                                     (mobPosition boss)
                                     (mobPosition moved)
-                            in moved { mobPosition = safePosition }
+                            in moved { mobPosition = safePosition
+                                     , mobZone = zoneOf (position p)}
 
                     in worldWithNumbers
                         { mobs = map moveOneBoss (mobs worldWithNumbers) }

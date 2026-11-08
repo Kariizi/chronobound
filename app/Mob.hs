@@ -202,7 +202,7 @@ updateMobAttack dt p mob =
                         { mobAction = Lunging newLungeTime direction
                         }
 
--- All mobs attack, and the player loses the total damage
+-- All mobs attack. Outside Hell the player loses time; in Hell the trial timer drops
 mobAttacks :: Float -> World -> World
 mobAttacks dt world =
     let
@@ -222,9 +222,22 @@ mobAttacks dt world =
                 }
             | (_, dmg) <- results, dmg > 0
             ]
+
+        inHell = currentLevel world == HellLevel
+
+        -- Outside Hell hits drain the player's time; in Hell they drain the trial timer
+        newPlayer
+            | inHell    = p
+            | otherwise = p { health = max 0 (health p - totalDamage) }
+
+        newHellTime
+            | inHell    = max 0 (hellTimeRemaining world
+                                 - fromIntegral totalDamage * hellDamageTimeFactor)
+            | otherwise = hellTimeRemaining world
     in
         world
             { mobs = map fst results
-            , player = p { health = max 0 (health p - totalDamage) }
+            , player = newPlayer
+            , hellTimeRemaining = newHellTime
             , damageNumbers = damageNumbers world ++ hitNumbers
             }
