@@ -1,4 +1,3 @@
-
 module Controller where
 
 import Graphics.Gloss.Interface.Pure.Game
@@ -10,6 +9,10 @@ import Spawn (spawnAllZones)
 
 -- Handles keyboard events
 handleInput :: Event -> World -> World
+
+-- Ignore all keyboard input after Game Over
+handleInput _ world
+    | gameState world /= Playing = world
 
 -- Updating held keys for WASD movement
 handleInput (EventKey (Char key) Down _ _) world
@@ -145,10 +148,19 @@ enterLevel newLevel world =
         -- Check whether we're entering Hell
         enteringHell = newLevel == HellLevel
 
+        -- Starting a new Hell run from another dimension
+        startingHell = enteringHell && currentLevel world /= HellLevel
+
+        -- Reset layer only when entering Hell from another dimension
+        newHellLayer =
+            if startingHell
+                then 1
+                else hellLayer world
+
         -- Reset the timer only when entering Hell
         newHellTime =
             if enteringHell
-                then hellTrialDuration
+                then hellTrialDuration + bonusHellTime world
                 else hellTimeRemaining world
 
         -- Reset Hell kills only when entering Hell
@@ -175,8 +187,12 @@ enterLevel newLevel world =
         -- Store Hell trial values
         , hellTimeRemaining = newHellTime
         , hellKills = newHellKills
+        , hellLayer = newHellLayer
+        , bonusHellTime =
+            if enteringHell
+                then 0
+                else bonusHellTime world
         }
-
 
 
 updateDamageNumbers :: Float -> [DamageNumber] -> [DamageNumber]
@@ -204,11 +220,129 @@ updateDamageNumbers dt numbers =
 
     in activeNumbers
 
+-- FOR UPGRADING
+hellUpgradeSelection :: [Upgrade]
+hellUpgradeSelection =
+    [ TimeUpgrade 15
+    , DamageUpgrade 2
+    , SpeedUpgrade 40
+    ]
 
--- Update the game world every frame
-updateWorld :: Walkable -> Float -> World -> World
-updateWorld walkable dt world =
+-- Applies the chosen upgrade to the player or Hell timer
+applyHellUpgrade :: Upgrade -> World -> World
+applyHellUpgrade upgrade world =
     let
+        p = player world
+    in case upgrade of
+        -- Store extra time for the next Hell layer
+        TimeUpgrade extraTime ->
+            world
+                { bonusHellTime = bonusHellTime world + extraTime }
+        -- Increase the player's attack damage
+        DamageUpgrade extraDamage ->
+            world
+                { player = p
+                    { attackDamage = attackDamage p + extraDamage }
+                }
+        -- Increase the player's movement speed
+        SpeedUpgrade extraSpeed ->
+            world
+                { player = p
+                    { moveSpeed = moveSpeed p + extraSpeed }
+                }
+        -- Existing health upgrade, kept for compatibility
+        HealthUpgrade extraHealth ->
+            world
+                { player = p
+                    { maxHealth = maxHealth p + extraHealth
+                    , health = health p + extraHealth
+                    }
+                }
+
+
+-- Choose an upgrade and move to the next Hell layer
+chooseUpgrade :: Int -> World -> World
+chooseUpgrade choice world =
+    let
+        -- Retrieve the available upgrades
+        choices = upgradeChoices world
+
+        -- Convert the selected key to a list index
+        index = choice - 1
+
+        -- Check whether the selected upgrade is valid
+        validChoice = index >= 0 && index < length choices
+
+    in
+        if gameState world /= ChoosingUpgrade || not validChoice
+            then world
+
+        else
+            let
+                -- Retrieve the selected upgrade
+                selectedUpgrade = choices !! index
+
+                -- Apply the selected upgrade
+                upgradedWorld = applyHellUpgrade selectedUpgrade world
+
+                -- Move to the next Hell layer
+                nextLayer = hellLayer upgradedWorld + 1
+
+                -- Update the layer and resume gameplay
+                updatedWorld = upgradedWorld
+                    { hellLayer = nextLayer
+                    , gameState = Playing
+                    , upgradeChoices = []
+                    , heldKeys = []
+                    }
+
+            -- Enter the next Hell layer
+            in enterLevel HellLevel updatedWorld
+
+
+-- FOR HELL: CHECKS IF YOU WIN OR LOSE
+checkHellTrial :: World -> World 
+checkHellTrial world = 
+    let 
+        inHell = currentLevel world == HellLevel
+        -- Get current hell level
+        currentLayer = hellLayer world
+        -- Check the kill requirement for the current Hell layer
+        trialWon =
+            hellKills world >= requiredKillsFor (hellLayer world)
+        trialLost = hellTimeRemaining world <= 0
+    in
+        if not inHell
+            then world 
+        else if trialWon
+            then 
+                -- Final layer completed
+                if currentLayer == finalHellLayer
+                    then world { gameState = Victory }
+                -- Move to the next layer
+                else
+                    world
+                        { gameState = ChoosingUpgrade
+                        , upgradeChoices = hellUpgradeSelection
+                        , heldKeys = []
+                        }
+        -- Trial failed
+        else if trialLost
+            then world { gameState = GameOver }
+        -- Trial ongoing
+        else world
+
+-- Updates the world at every frame
+-- walkable says which world positions are walkable on the current map
+updateWorld :: Walkable -> Float -> World -> World
+updateWorld walkable dt world
+    -- Return world with no updates
+    | gameState world /= Playing = world
+    | otherwise = updatePlayingWorld walkable dt world
+
+updatePlayingWorld :: Walkable -> Float -> World -> World 
+updatePlayingWorld walkable dt world = 
+    let 
         p = player world
         keys = heldKeys world
 
@@ -228,7 +362,7 @@ updateWorld walkable dt world =
             , facingDirection = newFacing
             }
 
-               -- Move normally or dash, then stop at walls
+        -- Move normally or dash, then stop at walls
         rawMovedPlayer =
             if isDashing movingPlayer
                 then dashMovement dt movingPlayer
@@ -272,5 +406,8 @@ updateWorld walkable dt world =
         -- Update Hell's countdown after handling dimension changes
         worldWithHellTimer = updateHellTimer dt worldWithLevel
 
+        -- Check whether Death's Trial has ended
+        worldWithTrialResult = checkHellTrial worldWithHellTimer
+
     -- Update mobs using the new player position
-    in worldWithHellTimer { worldTime = worldTime world + dt }
+    in worldWithTrialResult { worldTime = worldTime world + dt }

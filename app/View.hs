@@ -3,7 +3,6 @@ module View where
 
 import Graphics.Gloss
 import Model
-import Combat (isAttacking)
 import Player (isDashing)
 import Mob (distanceToPlayer)
 import qualified Data.Map.Strict as M
@@ -21,7 +20,7 @@ drawWorld sprites world =
         (x, y) = position p
 
         -- Player facing direction
-        (fx, fy) = facingDirection p
+        (fx, _) = facingDirection p
 
         -- Draw player using the animation matching their current action
         playerPicture =
@@ -75,20 +74,6 @@ drawWorld sprites world =
 
             in translate x y (scale sx s (artPic art))
 
-        -- How far in front of the player the attack appears
-        attackDistance = meleeAttackDistance
-
-        -- Calculate attack position
-        attackX = x + fx * attackDistance
-        attackY = y + fy * attackDistance
-
-        -- Draw melee attack indicator
-        attackPicture =
-            if isAttacking p
-                then translate attackX attackY
-                    (color orange (circleSolid 15))
-                else Blank
-
         -- Draw all mobs
         mobPictures = map (drawMob sprites (worldTime world) p) (mobs world)
 
@@ -96,7 +81,8 @@ drawWorld sprites world =
         damagePictures = map drawDamageNumber (damageNumbers world)
 
     -- Mobs at the back, damage numbers on top
-    in pictures (mobPictures ++ [playerPicture, attackPicture] ++ damagePictures)
+    in pictures
+        (mobPictures ++ [drawRewindTrail world, drawRewindPreview world, playerPicture] ++ damagePictures)
 
 
 -- How long a mob's attack animation plays after it hits (length of the attack GIF)
@@ -209,6 +195,9 @@ drawHellHUD world =
         timeLeft = hellTimeRemaining world
         kills = hellKills world
 
+        currentLayer = hellLayer world
+        requiredKills = requiredKillsFor currentLayer
+
         -- Fraction of the trial time remaining (0 to 1)
         timeFraction = max 0 (min 1 (timeLeft / hellTrialDuration))
 
@@ -227,7 +216,12 @@ drawHellHUD world =
                 else makeColor 0.85 0.1 0.1 1
 
         -- Title
-        title = centredText 0.18 (makeColor 1 0.25 0.15 1) "DEATH'S TRIAL"
+        titleText =
+            if currentLayer == finalHellLayer
+                then "THE CLOCKMAKER"
+                else "DEATH'S TRIAL - LAYER " ++ show currentLayer
+
+        title = centredText 0.18 (makeColor 1 0.25 0.15 1) titleText
 
         -- Dark background bar, with the red fill shrinking towards the left
         barBackground = color (makeColor 0.2 0 0 0.8)
@@ -238,7 +232,7 @@ drawHellHUD world =
             (color barColour (rectangleSolid fillWidth barHeight))
 
         -- Seconds left and kill progress underneath the bar
-        infoText = "KILLS " ++ show kills ++ " / " ++ show hellRequiredKills
+        infoText = "KILLS " ++ show kills ++ " / " ++ show requiredKills
             ++ "    " ++ show (ceiling timeLeft :: Int) ++ "s"
         info = centredText 0.12 white infoText
 
@@ -259,6 +253,226 @@ centredText size colour str =
 
     in translate (-textWidth / 2) (-textHeight / 2)
         (scale size size (color colour (Text str)))
+
+
+-- Dark overlay with the Game Over message, drawn on top of everything
+drawGameOver :: World -> Picture
+drawGameOver world
+    | gameState world == GameOver =
+        pictures
+            [ -- Semi-transparent black over the whole window
+              color (makeColor 0 0 0 0.7) (rectangleSolid windowWidth windowHeight)
+
+              -- Large title, slightly above centre
+            , translate 0 30 (centredText 0.4 (makeColor 0.9 0.15 0.1 1) "TIME'S UP")
+
+              -- Restart hint underneath
+            , translate 0 (-40) (centredText 0.15 white "Press ENTER to restart")
+            ]
+    | otherwise = Blank
+
+-- Ending screen after defeating the boss, revealing the story's twist
+drawVictory :: World -> Picture
+drawVictory world
+    | gameState world == Victory =
+        let
+            -- Total run time as minutes:seconds
+            totalSeconds = floor (worldTime world) :: Int
+            (minutes, seconds) = totalSeconds `divMod` 60
+            padded n = if n < 10 then '0' : show n else show n
+            timeText = "Time survived: " ++ show minutes ++ ":" ++ padded seconds
+
+            gold = makeColor 1 0.8 0.3 1
+            pale = makeColor 0.85 0.85 0.9 1
+
+        in pictures
+            [ -- Darker overlay than Game Over so the story text stands out
+              color (makeColor 0 0 0 0.8) (rectangleSolid windowWidth windowHeight)
+
+              -- Title
+            , translate 0 110 (centredText 0.35 gold "YOU SURVIVED")
+
+              -- The README twist
+            , translate 0 40 (centredText 0.13 pale "The monsters you killed... were human.")
+            , translate 0 10 (centredText 0.13 pale "The Clock has chosen you as its servant.")
+
+              -- Run stats
+            , translate 0 (-45) (centredText 0.12 white timeText)
+
+              -- Restart hint
+            , translate 0 (-110) (centredText 0.15 white "Press ENTER to play again")
+            ]
+    | otherwise = Blank
+
+
+-- Title screen shown when the game first opens
+drawStartScreen :: World -> Picture
+drawStartScreen world
+    | gameState world == Menu =
+        let
+            gold = makeColor 1 0.8 0.3 1
+            pale = makeColor 0.8 0.78 0.85 1
+
+            -- One control: key in gold on the left, action in white on the right
+            controlLine y key action = pictures
+                [ translate (-70) y (centredText 0.11 gold key)
+                , translate 70 y (centredText 0.11 white action)
+                ]
+
+        in pictures
+            [ -- Almost opaque so the title stands out over the paused map
+              color (makeColor 0.02 0.01 0.03 0.88) (rectangleSolid windowWidth windowHeight)
+
+              -- Title
+            , translate 0 190 (centredText 0.45 gold "CHRONOBOUND")
+
+              -- Premise
+            , translate 0 125 (centredText 0.11 pale "Your time is your life.")
+            , translate 0 100 (centredText 0.11 pale "Kill to steal more... before it runs out.")
+
+              -- Controls
+            , controlLine 40 "WASD" "Move"
+            , controlLine 10 "SPACE" "Attack"
+            , controlLine (-20) "F" "Dash"
+            , controlLine (-50) "R" "Rewind"
+
+              -- Start prompt
+            , translate 0 (-140) (centredText 0.16 white "Press ENTER to begin")
+            ]
+    | otherwise = Blank
+
+-- Upgrade selection screen shown between Hell layers
+drawUpgradeScreen :: World -> Picture
+drawUpgradeScreen world
+    | gameState world == ChoosingUpgrade =
+        let
+            choices = upgradeChoices world
+            count = length choices
+
+            -- Space between card centres
+            cardSpacing = 240
+
+            -- Centre the row of cards whatever the number of choices
+            cardX index = (fromIntegral index - (fromIntegral count + 1) / 2) * cardSpacing
+
+            -- Pair each upgrade with its key number (1, 2, 3)
+            cards =
+                [ translate (cardX index) (-10) (drawUpgradeCard index upgrade)
+                | (index, upgrade) <- zip [1 ..] choices
+                ]
+
+            ivory = makeColor 0.95 0.9 0.75 1
+
+        in pictures (
+            [ -- Dim the game behind the screen
+              color (makeColor 0 0 0 0.75) (rectangleSolid windowWidth windowHeight)
+
+              -- Title
+            , translate 0 190 (centredText 0.3 ivory "CHOOSE AN UPGRADE")
+            , translate 0 150 (centredText 0.11 (makeColor 0.7 0.65 0.6 1) "Death grants you one blessing...")
+            ]
+            ++ cards ++
+            [ -- How to choose
+              translate 0 (-170) (centredText 0.13 white "PRESS 1, 2 OR 3 TO CHOOSE")
+            ])
+    | otherwise = Blank
+
+-- One upgrade card: key number, name and effect, coloured by upgrade type
+drawUpgradeCard :: Int -> Upgrade -> Picture
+drawUpgradeCard index upgrade =
+    let
+        cardWidth = 200
+        cardHeight = 180
+
+        accent = upgradeColour upgrade
+
+        -- Darker version of the accent for the card background
+        background = color (makeColor 0.08 0.06 0.08 0.95) (rectangleSolid cardWidth cardHeight)
+
+        -- Double border in the accent colour
+        border = color accent (pictures
+            [ rectangleWire cardWidth cardHeight
+            , rectangleWire (cardWidth - 8) (cardHeight - 8)
+            ])
+
+        keyLabel = translate 0 50 (centredText 0.22 accent ("[" ++ show index ++ "]"))
+        title = translate 0 0 (centredText 0.11 white (upgradeTitle upgrade))
+        description = translate 0 (-40) (centredText 0.09 accent (upgradeDescription upgrade))
+
+    in pictures [background, border, keyLabel, title, description]
+
+-- Name shown on each upgrade card
+upgradeTitle :: Upgrade -> String
+upgradeTitle upgrade = case upgrade of
+    TimeUpgrade _   -> "Borrowed Time"
+    DamageUpgrade _ -> "Sharpened Blade"
+    SpeedUpgrade _  -> "Fleeting Step"
+    HealthUpgrade _ -> "Stolen Years"
+
+-- Short effect text (kept short because Gloss text does not wrap)
+upgradeDescription :: Upgrade -> String
+upgradeDescription upgrade = case upgrade of
+    TimeUpgrade amount   -> "+" ++ show (round amount :: Int) ++ " seconds"
+    DamageUpgrade amount -> "+" ++ show amount ++ " damage"
+    SpeedUpgrade amount  -> "+" ++ show (round amount :: Int) ++ " movement speed"
+    HealthUpgrade amount -> "+" ++ show amount ++ " max time"
+
+-- Accent colour for each upgrade type
+upgradeColour :: Upgrade -> Color
+upgradeColour upgrade = case upgrade of
+    TimeUpgrade _   -> makeColor 1 0.75 0.3 1      -- gold
+    DamageUpgrade _ -> makeColor 0.85 0.25 0.25 1  -- crimson
+    SpeedUpgrade _  -> makeColor 0.45 0.8 0.85 1   -- pale teal
+    HealthUpgrade _ -> makeColor 0.5 0.85 0.5 1    -- green
+
+-- Draws a marker showing where the player will rewind to
+drawRewindPreview :: World -> Picture
+drawRewindPreview world =
+    let
+        p = player world
+        history = playerHistory world
+    in
+        if rewindCooldownRemaining p > 0 || null history
+            then Blank
+        else
+            let
+                -- Retrieve the oldest saved player position
+                (x, y) = snapshotPosition (last history)
+                -- Create the rewind marker
+                marker = pictures
+                    [ color (makeColor 0.4 0.85 1 1) (thickCircle 22 3)
+                    , color white (line [(0, 0), (0, 12)])
+                    , color white (line [(0, 0), (9, 0)])
+                    ]
+            in translate x y marker
+
+-- Draws a trail showing the player's previous positions
+drawRewindTrail :: World -> Picture
+drawRewindTrail world =
+    let
+        p = player world
+        history = playerHistory world
+
+        -- Keep every 6th snapshot so there aren't too many dots
+        snapshots =
+            [ snapshot
+            | (index, snapshot) <- zip [0..] history
+            , index `mod` 6 == 0
+            ]
+
+        -- Draw a dot at each saved position
+        drawDot snapshot =
+            let
+                (x, y) = snapshotPosition snapshot
+
+            in translate x y
+                (color (makeColor 0.4 0.85 1 0.65)
+                    (circleSolid 3))
+
+    in
+        if rewindCooldownRemaining p > 0 || null history
+            then Blank
+            else pictures (map drawDot snapshots)
 
 
 -- Which frame of an animation to show at time t (loops forever)

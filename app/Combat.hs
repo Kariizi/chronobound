@@ -93,10 +93,21 @@ performMeleeAttackMob world =
         -- Get number of dead mobs
         kills = length(updatedMobs) - length(aliveMobs)
 
+        -- For the Hell Level:
+        currentHellKills = hellKills world 
+        newHellKills = 
+            if currentLevel world == HellLevel
+                then currentHellKills + kills
+                else currentHellKills
+
+        -- For healing
         timePerKill = 10
         timeGained = timePerKill * kills 
-
-        newHealth = min (maxHealth p) (health p + timeGained)
+        -- Health SHOULDNT increase for hell
+        newHealth = 
+            if currentLevel world == HellLevel
+                then health p
+                else min (maxHealth p) (health p + timeGained)
 
         updatedPlayer = p {health = newHealth}
 
@@ -115,6 +126,6 @@ performMeleeAttackMob world =
             ]
         
 
-    in world { mobs = aliveMobs , damageNumbers = allDamageNumbers ++ gainNumbers, player = updatedPlayer }
+    in world { mobs = aliveMobs , damageNumbers = allDamageNumbers ++ gainNumbers, player = updatedPlayer, hellKills = newHellKills}
 
 -- Attacking Mob = Health Gain
