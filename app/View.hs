@@ -234,14 +234,12 @@ drawTimeClock world =
 
         -- Display remaining time inside the clock
         -- Number and label are stacked so the pair sits centred on the clock face
-        -- (small x nudges because Gloss letters are wider than centredText assumes,
-        --  so centred text ends up slightly left)
         timeNumber =
-            translate 5 7
+            translate 0 7
                 (centredText 0.19 white (show currentHP))
 
         timeLabel =
-            translate 6 (-13)
+            translate 0 (-13)
                 (centredText 0.08 clockColour "TIME")
 
         -- Position clock near top-left
@@ -318,12 +316,39 @@ drawHellHUD world =
 centredText :: Float -> Color -> String -> Picture
 centredText size colour str =
     let
-        -- Each Gloss character is roughly 100 units wide and 100 tall before scaling
-        textWidth = fromIntegral (length str) * 100 * size
+        -- Real width of the text (letters have different widths), and roughly 100 tall, before scaling
+        textWidth = textWidthUnits str * size
         textHeight = 100 * size
 
     in translate (-textWidth / 2) (-textHeight / 2)
         (scale size size (color colour (Text str)))
+
+
+-- Width of a string in Gloss text units (before scaling)
+textWidthUnits :: String -> Float
+textWidthUnits = sum . map glyphWidth
+
+-- Width of one character in Gloss's built-in font (GLUT Roman), measured with GLUT's stringWidth
+-- Characters not in the table fall back to 100
+glyphWidth :: Char -> Float
+glyphWidth c =
+    case lookup c glyphWidths of
+        Just w  -> w
+        Nothing -> 100
+
+-- Widths for every printable character from ' ' to '~', in order
+glyphWidths :: [(Char, Float)]
+glyphWidths = zip [' ' .. '~']
+    [ 104, 26, 51, 79, 76, 96, 101, 13, 47, 47, 59, 97, 26, 100, 26, 82   -- space ! " # $ % & ' ( ) * + , - . /
+    , 77, 66, 77, 77, 80, 77, 73, 77, 77, 74                              -- 0 to 9
+    , 26, 26, 81, 97, 81, 73, 74                                          -- : ; < = > ? @
+    , 80, 83, 84, 85, 78, 78, 89, 89, 21, 59, 79, 71, 97                  -- A to M
+    , 88, 88, 85, 88, 82, 80, 71, 89, 81, 100, 72, 79, 73                 -- N to Z
+    , 46, 78, 46, 90, 104, 83                                             -- [ \ ] ^ _ `
+    , 66, 70, 68, 70, 68, 38, 70, 71, 28, 36, 62, 19, 123                 -- a to m
+    , 70, 71, 70, 70, 49, 62, 39, 71, 60, 80, 56, 66, 61                  -- n to z
+    , 41, 23, 41, 91                                                      -- { | } ~
+    ]
 
 
 -- Dark overlay with the Game Over message, drawn on top of everything
