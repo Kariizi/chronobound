@@ -1,4 +1,4 @@
-import Graphics.Gloss.Interface.Pure.Game
+import Graphics.Gloss.Interface.IO.Game
 import Model
 import View
 import Controller
@@ -7,6 +7,7 @@ import qualified Victoria
 import qualified Limbo
 import qualified Hell
 import MapArt
+import Audio (setupMusic, updateMusic)
 
 data Maps = Maps
     { victoriaMap :: Victoria.Victoria
@@ -272,7 +273,11 @@ main = do
     -- Loads animated GIF sprites instead of static PNGs
     sprites <- loadAnimationSet 8 "app/assets/spriteanimated" animationNames
 
-    play
+    -- Start audio and load the background music (Nothing if there is no audio device)
+    audio <- setupMusic "app/assets/music"
+
+    -- playIO instead of play so the update can start and stop music
+    playIO
         (InWindow "Chronobound" (round windowWidth, round windowHeight) (100, 100))
         black
         60
@@ -281,7 +286,7 @@ main = do
         (startingWorld { gameState = Menu })
 
         -- Draw game world
-        (\world ->
+        (\world -> return $
             let
                 -- Retrieves player's position
                 (px, py) = position (player world)
@@ -310,7 +315,10 @@ main = do
                 ])
 
         -- Handle movement, attacks, dash, rewind, level debug keys and restarting
-        (handleLevelInput startingWorld)
+        (\event world -> return (handleLevelInput startingWorld event world))
 
-        -- Update game world every frame
-        (\dt world -> updateWorld (walkableFor maps (currentLevel world)) dt world)
+        -- Update game world every frame, then switch music if the scene changed
+        (\dt world -> do
+            let newWorld = updateWorld (walkableFor maps (currentLevel world)) dt world
+            mapM_ (\(music, musicPlayer) -> updateMusic music musicPlayer newWorld) audio
+            return newWorld)
