@@ -189,9 +189,76 @@ drawHUD world =
         hudX = -worldHalfWidth + 20
         hudY = worldHalfHeight - 40
 
-    in translate hudX hudY
-        (scale 0.15 0.15
-            (color white (Text hpText)))
+        timeHUD = translate hudX hudY
+            (scale 0.15 0.15
+                (color white (Text hpText)))
+
+        -- Extra Death's Trial panel, only shown in Hell
+        hellHUD =
+            if currentLevel world == HellLevel
+                then drawHellHUD world
+                else Blank
+
+    in pictures [timeHUD, hellHUD]
+
+
+-- Death's Trial HUD: countdown bar, seconds left and kills needed to escape
+drawHellHUD :: World -> Picture
+drawHellHUD world =
+    let
+        timeLeft = hellTimeRemaining world
+        kills = hellKills world
+
+        -- Fraction of the trial time remaining (0 to 1)
+        timeFraction = max 0 (min 1 (timeLeft / hellTrialDuration))
+
+        -- Panel sits at the top centre of the screen
+        panelY = worldHalfHeight - 35
+
+        -- Countdown bar size
+        barWidth = 240
+        barHeight = 10
+
+        -- Pulse between dark and bright red when under 10 seconds
+        pulse = (sin (worldTime world * 10) + 1) / 2
+        barColour =
+            if timeLeft < 10
+                then makeColor (0.5 + 0.5 * pulse) 0.05 0.05 1
+                else makeColor 0.85 0.1 0.1 1
+
+        -- Title
+        title = centredText 0.18 (makeColor 1 0.25 0.15 1) "DEATH'S TRIAL"
+
+        -- Dark background bar, with the red fill shrinking towards the left
+        barBackground = color (makeColor 0.2 0 0 0.8)
+            (rectangleSolid barWidth barHeight)
+
+        fillWidth = barWidth * timeFraction
+        barFill = translate (-(barWidth - fillWidth) / 2) 0
+            (color barColour (rectangleSolid fillWidth barHeight))
+
+        -- Seconds left and kill progress underneath the bar
+        infoText = "KILLS " ++ show kills ++ " / " ++ show hellRequiredKills
+            ++ "    " ++ show (ceiling timeLeft :: Int) ++ "s"
+        info = centredText 0.12 white infoText
+
+    in translate 0 panelY (pictures
+        [ title
+        , translate 0 (-22) (pictures [barBackground, barFill])
+        , translate 0 (-45) info
+        ])
+
+
+-- Draw text roughly centred on the origin (Gloss draws text from its bottom-left corner)
+centredText :: Float -> Color -> String -> Picture
+centredText size colour str =
+    let
+        -- Each Gloss character is roughly 100 units wide and 100 tall before scaling
+        textWidth = fromIntegral (length str) * 100 * size
+        textHeight = 100 * size
+
+    in translate (-textWidth / 2) (-textHeight / 2)
+        (scale size size (color colour (Text str)))
 
 
 -- Which frame of an animation to show at time t (loops forever)

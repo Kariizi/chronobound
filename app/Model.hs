@@ -15,6 +15,10 @@ data World = World
     , playerHistory :: [PlayerSnapshot]
     , worldTime :: Float
     , currentLevel :: Level
+    -- For hell level:
+    , hellTimeRemaining :: Float
+    , hellKills :: Int 
+    , gameState :: GameState
     } deriving (Show, Eq)
 
 -- Storing information about the player
@@ -79,6 +83,12 @@ data Level
     = VictoriaLevel
     | LimboLevel
     | HellLevel
+    deriving (Show, Eq)
+
+-- Stores gameState:
+data GameState 
+    = Playing
+    | GameOver
     deriving (Show, Eq)
 
 initialMob :: Mob
@@ -210,6 +220,14 @@ meleeHitRadius = 35
 rewindCooldown :: Float
 rewindCooldown = 5.0
 
+-- Time allowed to complete Deaths Trial
+hellTrialDuration :: Float
+hellTrialDuration = 30
+
+-- Number of kills required to escape Hell
+hellRequiredKills :: Int
+hellRequiredKills = 5
+
 -- Inital Game World
 initialWorld :: World
 initialWorld =
@@ -222,4 +240,8 @@ initialWorld =
         , playerHistory = []
         , worldTime = 0
         , currentLevel = VictoriaLevel
+        -- For hell
+        , hellTimeRemaining = 60
+        , hellKills = 0
+        , gameState = Playing
         }

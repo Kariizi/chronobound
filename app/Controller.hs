@@ -109,8 +109,22 @@ levelDependingOnHP level health
     | level == VictoriaLevel && health < 30 = LimboLevel
     | level == LimboLevel && health <= 0 = HellLevel
     | level == LimboLevel && health > 40 = VictoriaLevel
-    | level == HellLevel && health >= 10 = LimboLevel
     | otherwise = level 
+
+-- Hell Level Functionality 
+updateHellTimer :: Float -> World -> World 
+updateHellTimer dt world =
+    let 
+        inHell = currentLevel world == HellLevel
+        currentTime = hellTimeRemaining world
+
+        newTime = 
+            if inHell
+                then max 0 (currentTime - dt)
+                else currentTime
+
+    -- Store the updated trial time in the world
+    in world { hellTimeRemaining = newTime }
 
 -- Enter a new dimension
 enterLevel :: Level -> World -> World 
@@ -118,6 +132,18 @@ enterLevel newLevel world =
     let 
         p = player world 
         updatedPlayer = p { position = (0, 0) }
+
+        enteringHell = newLevel == HellLevel
+
+        newHellTime = 
+            if enteringHell 
+                then hellTrialDuration
+                else hellTimeRemaining world 
+        
+        newHellKills = 
+            if enteringHell 
+                then 0
+                else hellKills world 
 
     in world 
         { currentLevel = newLevel
@@ -127,7 +153,12 @@ enterLevel newLevel world =
         , playerHistory = []
         , projectiles = []
         , damageNumbers = []
+
+          -- Store the trial values
+        , hellTimeRemaining = newHellTime
+        , hellKills = newHellKills
         }
+
 
 updateDamageNumbers :: Float -> [DamageNumber] -> [DamageNumber]
 updateDamageNumbers dt numbers =
@@ -216,6 +247,9 @@ updateWorld dt world =
                 then enterLevel newLevel worldWithSnapshot
                 -- Otherwise keep the existing world unchanged
                 else worldWithSnapshot
+        
+        -- Update Hell's countdown after handling dimension changes
+        worldWithHellTimer = updateHellTimer dt worldWithLevel
 
     -- Update mobs using the new player position
-    in worldWithLevel { worldTime = worldTime world + dt }
+    in worldWithHellTimer { worldTime = worldTime world + dt }
