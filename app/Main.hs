@@ -57,10 +57,21 @@ handleLevelInput startingWorld event world
             EventKey (SpecialKey KeyEnter) Down _ _ -> startingWorld
             _ -> world
 
-handleLevelInput _ (EventKey (Char '1') Down _ _) world = world { currentLevel = VictoriaLevel }
-handleLevelInput _ (EventKey (Char '2') Down _ _) world = world { currentLevel = LimboLevel }
-handleLevelInput _ (EventKey (Char '3') Down _ _) world = world { currentLevel = HellLevel }
+-- Debug keys: jump to a level with HP that belongs there
+handleLevelInput _ (EventKey (Char '1') Down _ _) world = debugJump VictoriaLevel 100 world
+handleLevelInput _ (EventKey (Char '2') Down _ _) world = debugJump LimboLevel 20 world
+handleLevelInput _ (EventKey (Char '3') Down _ _) world = debugJump HellLevel 0 world
 handleLevelInput _ event world = handleInput event world
+
+-- Sets the player's HP and enters the level properly (new mobs, Hell trial reset)
+-- HP matches the level so levelDependingOnHP doesn't immediately switch back
+debugJump :: Level -> Int -> World -> World
+debugJump level hp world =
+    let
+        p = player world
+        worldWithHP = world { player = p { health = hp } }
+
+    in enterLevel level worldWithHP
 
 zoneBounds :: Zone -> (Float, Float, Float, Float)
 zoneBounds TopLeft     = (-maxX, -lineMargin,  lineMargin,  maxY)

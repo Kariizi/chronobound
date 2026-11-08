@@ -3,7 +3,6 @@ module View where
 
 import Graphics.Gloss
 import Model
-import Combat (isAttacking)
 import Player (isDashing)
 import Mob (distanceToPlayer)
 import qualified Data.Map.Strict as M
@@ -21,7 +20,7 @@ drawWorld sprites world =
         (x, y) = position p
 
         -- Player facing direction
-        (fx, fy) = facingDirection p
+        (fx, _) = facingDirection p
 
         -- Draw player using the animation matching their current action
         playerPicture =
@@ -75,20 +74,6 @@ drawWorld sprites world =
 
             in translate x y (scale sx s (artPic art))
 
-        -- How far in front of the player the attack appears
-        attackDistance = meleeAttackDistance
-
-        -- Calculate attack position
-        attackX = x + fx * attackDistance
-        attackY = y + fy * attackDistance
-
-        -- Draw melee attack indicator
-        attackPicture =
-            if isAttacking p
-                then translate attackX attackY
-                    (color orange (circleSolid 15))
-                else Blank
-
         -- Draw all mobs
         mobPictures = map (drawMob sprites (worldTime world) p) (mobs world)
 
@@ -96,7 +81,7 @@ drawWorld sprites world =
         damagePictures = map drawDamageNumber (damageNumbers world)
 
     -- Mobs at the back, damage numbers on top
-    in pictures (mobPictures ++ [playerPicture, attackPicture] ++ damagePictures)
+    in pictures (mobPictures ++ [playerPicture] ++ damagePictures)
 
 
 -- How long a mob's attack animation plays after it hits (length of the attack GIF)
