@@ -163,29 +163,93 @@ drawDamageNumber number =
 drawHUD :: World -> Picture
 drawHUD world =
     let
-        -- Retrieve player and health
-        p = player world
-        currentHP = health p
-        maximumHP = maxHealth p
+        -- Draw players remaining time as a clock
+        timeHUD = drawTimeClock world
 
-        -- Convert HP into text
-        hpText = "TIME: " ++ show currentHP
-
-        -- Position HUD near top-left of screen
-        hudX = -worldHalfWidth + 20
-        hudY = worldHalfHeight - 40
-
-        timeHUD = translate hudX hudY
-            (scale 0.15 0.15
-                (color white (Text hpText)))
-
-        -- Extra Death's Trial panel, only shown in Hell
+        -- Extra Deaths Trial panel, only shown in Hell
         hellHUD =
             if currentLevel world == HellLevel
                 then drawHellHUD world
                 else Blank
 
     in pictures [timeHUD, hellHUD]
+
+
+-- Draw the player's remaining time as a clock
+drawTimeClock :: World -> Picture
+drawTimeClock world =
+    let
+        -- Retrieve player and remaining time
+        p = player world
+        currentHP = health p
+
+        -- Calculate how much of the clock remains
+        timeFraction = max 0 (min 1 (fromIntegral currentHP / displayMaxTime))
+
+        -- Clock dimensions
+        clockRadius = 38
+        ringThickness = 5
+
+        -- Colour of clock depending on remaining time
+        clockColour
+            | currentLevel world == LimboLevel || currentHP < 30 =
+                makeColor 0.9 0.2 0.2 1
+
+            | currentHP <= 40 =
+                makeColor 0.65 0.4 0.9 1
+
+            | otherwise =
+                makeColor 0.95 0.75 0.35 1
+
+        -- Dark background for the clock
+        clockBackground =
+            color (makeColor 0.12 0.1 0.14 0.9)
+                (circleSolid (clockRadius + 5))
+
+        -- Outline of the full clock
+        clockOutline =
+            color (makeColor 0.3 0.25 0.3 1)
+                (thickCircle clockRadius ringThickness)
+
+        -- Calculate how much of the circular ring is filled
+        filledAngle = 360 * timeFraction
+
+        -- Draw remaining time as a circular arc
+        clockFill =
+            color clockColour
+                (thickArc (90 - filledAngle) 90 clockRadius ringThickness)
+
+        -- Draw small clock markings
+        clockTicks =
+            pictures
+                [ rotate (fromIntegral i * 30)
+                    (color (makeColor 0.7 0.6 0.5 0.8)
+                        (line [(0, clockRadius - 10), (0, clockRadius - 5)]))
+                | i <- [0 .. 11]
+                ]
+
+        -- Display remaining time inside the clock
+        timeNumber =
+            translate 0 4
+                (centredText 0.22 white (show currentHP))
+
+        timeLabel =
+            translate 0 (-14)
+                (centredText 0.08 clockColour "TIME")
+
+        -- Position clock near top-left
+        hudX = -worldHalfWidth + 65
+        hudY = worldHalfHeight - 65
+
+    in translate hudX hudY
+        (pictures
+            [ clockBackground
+            , clockOutline
+            , clockFill
+            , clockTicks
+            , timeNumber
+            , timeLabel
+            ])
 
 
 -- Death's Trial HUD: countdown bar, seconds left and kills needed to escape

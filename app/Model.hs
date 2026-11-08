@@ -285,6 +285,10 @@ hellTrialDuration = 60
 finalHellLayer :: Int
 finalHellLayer = 3
 
+-- Maximum Time for Levels
+displayMaxTime :: Float
+displayMaxTime = 100
+
 -- Number of enemies required to complete each layer
 requiredKillsFor :: Int -> Int
 requiredKillsFor layer
