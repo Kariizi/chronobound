@@ -130,6 +130,50 @@ resolveAttack p mob
     | canHitPlayer p mob = (mob { mobAttackCooldown = mobAttackInterval mob }, mobDamage mob)
     | otherwise          = (mob, 0)
 
+-- Changing the Mobs Attack:
+updateMobAttack :: Float -> Player -> Mob -> Mob 
+updateMobAttack dt p mob =
+    case mobAction mob of 
+        Chasing -> 
+            if (mobZone mob == zoneOf (position p)
+                && distanceToPlayer p mob <= playerRadius + mobRadius mob + mobAttackRange mob
+                && mobAttackCooldown mob <= 0)
+                then mob { mobAction = WindingUp mobWindupTime }
+                else mob 
+            
+        WindingUp timeLeft ->
+            let
+                newWindUp = timeLeft - dt
+                (px, py) = position p
+                (mx, my) = mobPosition mob
+                dx = px - mx
+                dy = py - my
+                distance = sqrt (dx * dx + dy * dy)
+                direction =
+                    if distance > 0
+                        then (dx / distance, dy / distance)
+                        else (0, 0)
+            in
+                if newWindUp <= 0
+                    then mob { mobAction = Lunging mobLungeTime direction }
+                    else mob { mobAction = WindingUp newWindUp }
+            
+        Lunging timeLeft direction ->
+            let
+                newLungeTime = timeLeft - dt
+            in
+                if newLungeTime <= 0
+                    -- Lunge has finished, return to chasing
+                    -- Reset the cooldown before the mob can attack again
+                    then mob
+                        { mobAction = Chasing
+                        , mobAttackCooldown = mobAttackInterval mob
+                        }
+                    -- Continue lunging in the same direction
+                    else mob
+                        { mobAction = Lunging newLungeTime direction
+                        }
+
 -- All mobs attack, and the player loses the total damage
 mobAttacks :: Float -> World -> World
 mobAttacks dt world =

@@ -69,6 +69,16 @@ data PlayerSnapshot = PlayerSnapshot
     , snapshotAge :: Float
     } deriving (Show, Eq)
 
+-- FOR MOB:
+
+-- Storing Attacks of the mobs:
+-- Chasing = follows play, winding up = preparing attack, Lunging = attacking
+data MobAction
+    = Chasing 
+    | WindingUp Float 
+    | Lunging Float (Float, Float)
+    deriving (Show, Eq)
+
 -- Storing information about the mobs
 data Mob = Mob
     { mobPosition :: (Float, Float)
@@ -80,6 +90,7 @@ data Mob = Mob
     , mobAttackRange :: Float
     , mobZone :: Zone
     , mobSprite :: String
+    , mobAction :: MobAction
 
     -- Random animation timing for each mob
     , mobAnimOffset :: Float
@@ -129,6 +140,8 @@ initialMob =
 
         -- One second between attacks
         , mobAttackInterval = 1.0
+
+        , mobAction = Chasing
         }
 
 -- Storing information about weapons
@@ -291,6 +304,20 @@ finalHellLayer = 3
 -- Maximum Time for Levels
 displayMaxTime :: Float
 displayMaxTime = 100
+
+-- For Mob Attacks 
+
+-- How long mobs prepare before lunging
+mobWindupTime :: Float
+mobWindupTime = 0.45
+
+-- How long a mob spends lunging
+mobLungeTime :: Float
+mobLungeTime = 0.2
+
+-- How quickly a mob lunges
+mobLungeSpeed :: Float
+mobLungeSpeed = 350
 
 -- Number of enemies required to complete each layer
 requiredKillsFor :: Int -> Int

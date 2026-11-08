@@ -50,10 +50,7 @@ spawnMob level zone generator =
     -- Return both the new mob and updated generator
     in (newMob, generator2)
 
-
 -- ENEMY TYPES
--- Each type is initialMob with different stats; the sprite is chosen per level
--- (player melee does 3 damage, so HP 9 = 3 hits, 20 = 7 hits, 30 = 10 hits)
 
 -- Standard enemy: the original mob stats
 normalEnemy :: String -> Mob
@@ -109,8 +106,11 @@ enemyTypesFor level =
 randomEnemy :: Level -> StdGen -> (Mob, StdGen)
 randomEnemy level generator =
     let
+        -- Get the enemy types for current lvl
         types = enemyTypesFor level
+        -- Generate random index 
         (index, generator1) = randomR (0, length types - 1) generator
+    -- Return the selected enemy and updated random generator
     in (types !! index, generator1)
 
 
