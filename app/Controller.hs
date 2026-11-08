@@ -212,7 +212,9 @@ checkHellTrial :: World -> World
 checkHellTrial world = 
     let 
         inHell = currentLevel world == HellLevel
-        trialWon = hellKills world >= hellRequiredKills
+        -- Check the kill requirement for the current Hell layer
+        trialWon =
+            hellKills world >= requiredKillsFor (hellLayer world)
         trialLost = hellTimeRemaining world <= 0
     in
             if not inHell

@@ -194,6 +194,9 @@ drawHellHUD world =
         timeLeft = hellTimeRemaining world
         kills = hellKills world
 
+        currentLayer = hellLayer world
+        requiredKills = requiredKillsFor currentLayer
+
         -- Fraction of the trial time remaining (0 to 1)
         timeFraction = max 0 (min 1 (timeLeft / hellTrialDuration))
 
@@ -212,7 +215,12 @@ drawHellHUD world =
                 else makeColor 0.85 0.1 0.1 1
 
         -- Title
-        title = centredText 0.18 (makeColor 1 0.25 0.15 1) "DEATH'S TRIAL"
+        titleText =
+            if currentLayer == finalHellLayer
+                then "THE CLOCKMAKER"
+                else "DEATH'S TRIAL - LAYER " ++ show currentLayer
+
+        title = centredText 0.18 (makeColor 1 0.25 0.15 1) titleText
 
         -- Dark background bar, with the red fill shrinking towards the left
         barBackground = color (makeColor 0.2 0 0 0.8)
@@ -223,7 +231,7 @@ drawHellHUD world =
             (color barColour (rectangleSolid fillWidth barHeight))
 
         -- Seconds left and kill progress underneath the bar
-        infoText = "KILLS " ++ show kills ++ " / " ++ show hellRequiredKills
+        infoText = "KILLS " ++ show kills ++ " / " ++ show requiredKills
             ++ "    " ++ show (ceiling timeLeft :: Int) ++ "s"
         info = centredText 0.12 white infoText
 

@@ -21,6 +21,7 @@ data World = World
     , hellTimeRemaining :: Float
     , hellKills :: Int 
     , gameState :: GameState
+    , hellLayer :: Int 
     -- For generating Mobs
     , rng :: StdGen
     } deriving (Show, Eq)
@@ -228,6 +229,18 @@ rewindCooldown = 5.0
 hellTrialDuration :: Float
 hellTrialDuration = 60
 
+-- The final layer of Hell contains the boss
+finalHellLayer :: Int
+finalHellLayer = 3
+
+-- Number of enemies required to complete each layer
+requiredKillsFor :: Int -> Int
+requiredKillsFor layer
+    | layer == 1 = 5
+    | layer == 2 = 8
+    | layer == 3 = 1
+    | otherwise = 1
+
 -- Number of kills required to escape Hell
 hellRequiredKills :: Int
 hellRequiredKills = 5
@@ -247,6 +260,7 @@ initialWorld =
         -- For hell
         , hellTimeRemaining = hellTrialDuration
         , hellKills = 0
+        , hellLayer = 1
         , gameState = Playing
         -- For generating Mobs
         , rng = mkStdGen 0
