@@ -312,6 +312,9 @@ main = do
 
                   -- Start screen shown when the game first opens
                 , drawStartScreen world
+
+                -- Pause menu overlay
+                , drawPauseScreen world
                 ])
 
         -- Handle movement, attacks, dash, rewind and restarting

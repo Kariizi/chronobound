@@ -271,6 +271,32 @@ drawGameOver world
             ]
     | otherwise = Blank
 
+-- Draw pause menu when the game is paused
+drawPauseScreen :: World -> Picture
+drawPauseScreen world
+    | gameState world == Paused =
+        pictures
+            [ -- Dark overlay over the game
+              color (makeColor 0 0 0 0.75)
+                  (rectangleSolid windowWidth windowHeight)
+
+              -- Pause title
+            , translate 0 60
+                (centredText 0.4 (makeColor 1 0.8 0.3 1) "PAUSED")
+
+              -- Controls
+            , translate 0 0
+                (centredText 0.13 white "WASD - Move | SPACE - Attack")
+            , translate 0 (-30)
+                (centredText 0.13 white "F - Dash | R - Rewind")
+
+              -- Resume instruction
+            , translate 0 (-100)
+                (centredText 0.15 white "Press ESC to resume")
+            ]
+    | otherwise = Blank
+
+
 -- Ending screen after defeating the boss, revealing the story's twist
 drawVictory :: World -> Picture
 drawVictory world
