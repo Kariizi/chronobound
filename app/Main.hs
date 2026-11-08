@@ -48,6 +48,81 @@ drawLevel ms level (px, py) =
 
     in scale mapZoom mapZoom picture
 
+-- Check whether a position falls inside a house sprite
+houseSpriteCovers :: Victoria.Victoria -> Float -> Float -> Bool
+houseSpriteCovers v mx my =
+    any coversHouse nearbyTiles
+  where
+    -- Convert map position into approximate tile coordinates
+    i = (mx / 16 + my / 8) / 2
+    j = (my / 8 - mx / 16) / 2
+
+    -- Check nearby tiles for houses
+    nearbyTiles =
+        [ (a, b)
+        | a <- [floor i - 6 .. floor i + 6]
+        , b <- [floor j - 6 .. floor j + 6]
+        ]
+
+    coversHouse (a, b) =
+        case Victoria.tileAt v (a, b) of
+            Victoria.Tile _ (Just (Victoria.House style)) ->
+                let
+                    -- Position where the house sprite is drawn
+                    hx = fromIntegral (a - b) * 16
+                    hy = fromIntegral (a + b) * 8
+
+                    -- Height of each house sprite
+                    houseHeight = case style of
+                        Victoria.RedBrick -> 70
+                        Victoria.Stucco   -> 78
+                        Victoria.Soot     -> 62
+
+                in
+                    mx >= hx - 16 &&
+                    mx <= hx + 16 &&
+                    my >= hy + 16 - houseHeight &&
+                    my <= hy + 16
+
+            _ -> False
+
+
+-- Points at the feet, relative to the sprite centre, in world pixels.
+-- dy is how far below the centre the feet are.
+footprint :: [(Float, Float)]
+footprint = [(0, 0)]
+
+-- Is this one world point free (not water, empty air or under a house)?
+victoriaPointOk :: Victoria.Victoria -> (Float, Float) -> Bool
+victoriaPointOk v (fx, fy) =
+    let (camX, camY) = Victoria.startView v
+        mx = fx / mapZoom + camX
+        my = camY - fy / mapZoom
+        i  = (mx / 16 + my / 8) / 2
+        j  = (my / 8 - mx / 16) / 2
+    in case Victoria.tileAt v (floor i, floor j) of
+         Victoria.Void          -> False
+         Victoria.Tile ground _ ->
+           ground /= Victoria.Water && not (Victoria.houseCovers v (mx, my))
+
+-- The player or a mob can stand here if all their foot points are free
+victoriaWalkable :: Victoria.Victoria -> Walkable
+victoriaWalkable v (wx, wy) =
+    all (victoriaPointOk v) [ (wx + dx, wy + dy) | (dx, dy) <- footprint ]
+
+
+-- Turn a map's "blocked" check (in map pixels) into a Walkable (in world pixels)
+walkableOn :: (Float, Float) -> ((Float, Float) -> Bool) -> Walkable
+walkableOn (camX, camY) blocked (wx, wy) =
+    not (any blocked [ ((wx + dx) / mapZoom + camX, camY - (wy + dy) / mapZoom)
+                     | (dx, dy) <- footprint ])
+
+walkableFor :: Maps -> Level -> Walkable
+walkableFor ms VictoriaLevel = victoriaWalkable (victoriaMap ms)
+walkableFor ms HellLevel     = let m = hellMap ms in walkableOn (Hell.startView m) (Hell.hellBlocked m)
+walkableFor ms LimboLevel    = let m = limboMap ms in walkableOn (Limbo.startView m) (Limbo.limboBlocked m)
+
+
 -- Takes the starting world so Enter can restart the game after Game Over
 handleLevelInput :: World -> Event -> World -> World
 
@@ -107,20 +182,19 @@ maxX, maxY :: Float
 maxX = worldHalfWidth  - edgeMargin
 maxY = worldHalfHeight - edgeMargin
 
-randomMobPositionsIn :: Zone -> Int -> [(Float, Float)] -> IO [(Float, Float)]
-randomMobPositionsIn _ 0 positions = return positions
+randomMobPositionsIn :: Walkable -> Zone -> Int -> [(Float, Float)] -> IO [(Float, Float)]
+randomMobPositionsIn _ _ 0 positions = return positions
 
-randomMobPositionsIn zone n positions = do
+randomMobPositionsIn walkable zone n positions = do
     let (x0, x1, y0, y1) = zoneBounds zone
     x <- randomRIO (x0, x1)
     y <- randomRIO (y0, y1)
 
     let newPosition = (x, y)
 
-    if any (tooClose newPosition) (position initialPlayer : positions)
-        then randomMobPositionsIn zone n positions
-        else randomMobPositionsIn zone (n - 1) (newPosition : positions)
-
+    if not (walkable newPosition) || any (tooClose newPosition) (position initialPlayer : positions)
+        then randomMobPositionsIn walkable zone n positions
+        else randomMobPositionsIn walkable zone (n - 1) (newPosition : positions)
 
 tooClose :: (Float, Float) -> (Float, Float) -> Bool
 tooClose (x1, y1) (x2, y2) =
@@ -166,40 +240,34 @@ animationNames =
     ]
 
 -- Spawns n mobs in a zone, each with a random enemy sprite
-spawnZoneMobs :: Int -> Zone -> IO [Mob]
-spawnZoneMobs n zone = do
-    positions <- randomMobPositionsIn zone n []
+spawnZoneMobs :: Walkable -> Int -> Zone -> IO [Mob]
+spawnZoneMobs walkable n zone = do
+    positions <- randomMobPositionsIn walkable zone n []
     mapM makeMob positions
   where
     makeMob pos = do
-    -- Randomly selects an enemy sprite
         k <- randomRIO (0, length enemySprites - 1)
-        -- Generates a random animation offset between 0 and 1 second
-        offset <- randomRIO (0.0, 1.0)
         return initialMob
             { mobPosition = pos
-            , mobZone = zone
-            , mobSprite = enemySprites !! k
-            , mobAnimOffset = offset
+            , mobZone     = zone
+            , mobSprite   = enemySprites !! k
             }
 
 
 main :: IO ()
 main = do
-    -- Spawn mobs in each zone
-    startingMobs <- concat <$> mapM (spawnZoneMobs 2) [minBound .. maxBound]
-
-    -- Creates generator for mob spawning
-    generator <- newStdGen
-
-    -- Initialise the world with spawned mobs 
-    let startingWorld = initialWorld { mobs = startingMobs, rng = generator }
+    
+    
 
     -- Load all three maps
     maps <- Maps
         <$> Victoria.loadVictoria "app/assets/victoria"
         <*> Limbo.loadLimbo "app/assets/limbo"
         <*> Hell.loadHell "app/assets/hell"
+
+    startingMobs <- concat <$> mapM (spawnZoneMobs (walkableFor maps VictoriaLevel) 2) [minBound .. maxBound]
+    generator <- newStdGen
+    let startingWorld = initialWorld { mobs = startingMobs, rng = generator }
 
     -- Loads animated GIF sprites instead of static PNGs
     sprites <- loadAnimationSet 8 "app/assets/spriteanimated" animationNames
@@ -245,4 +313,4 @@ main = do
         (handleLevelInput startingWorld)
 
         -- Update game world every frame
-        updateWorld
+        (\dt world -> updateWorld (walkableFor maps (currentLevel world)) dt world)

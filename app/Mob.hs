@@ -1,56 +1,67 @@
 module Mob where
 import Model
 
--- monster movements
-moveMob :: Float -> Player -> Mob -> Mob
-moveMob dt p mob =
+--- Move one mob towards its slot on the ring around the player
+moveMob :: Float -> Float -> Player -> Mob -> Mob
+moveMob dt slotAngle p mob =
     let
         (mx, my) = mobPosition mob
         (px, py) = position p
 
-        -- Calculate direction towards the player
-        dx = px - mx
-        dy = py - my
-
-        -- Calculate distance between monster and player
-        distance = sqrt (dx*dx + dy*dy)
+        -- Closest the mob's centre may get to the player's centre
         stopDistance = playerRadius + mobRadius mob
 
- in
-        if distance <= stopDistance
-        then mob
-        else 
-            let
-                -- Calculate how far the monster should move
-                travelDistance = min (distance - stopDistance) (mobSpeed mob * dt)
+        -- The spot on the ring this mob is aiming for
+        targetX = px + cos slotAngle * stopDistance
+        targetY = py + sin slotAngle * stopDistance
 
-                -- Calculate new position
-                newX = mx + (dx / distance) * travelDistance
-                newY = my + (dy / distance) * travelDistance
+        -- Direction and distance to that spot (not to the player's centre)
+        dx = targetX - mx
+        dy = targetY - my
+        distance = sqrt (dx*dx + dy*dy)
 
-            in mob { mobPosition = (newX, newY) }
+        travelDistance = min distance (mobSpeed mob * dt)
 
+        (stepX, stepY)
+            | distance == 0 = (mx, my)
+            | otherwise     = ( mx + dx / distance * travelDistance
+                              , my + dy / distance * travelDistance )
 
+        -- If the step would enter the player, slide out to the player's edge
+        ox = stepX - px
+        oy = stepY - py
+        fromPlayer = sqrt (ox*ox + oy*oy)
+
+        (finalX, finalY)
+            | fromPlayer < stopDistance && fromPlayer > 0 =
+                ( px + ox / fromPlayer * stopDistance
+                , py + oy / fromPlayer * stopDistance )
+            | otherwise = (stepX, stepY)
+    in
+        mob { mobPosition = (finalX, finalY) }
        
 
-moveMobs :: Float -> World -> World
-moveMobs dt world =
+moveMobs :: Walkable -> Float -> World -> World
+moveMobs walkable dt world =
     let
         p = player world
         playerZone = zoneOf (position p)
 
-        -- Only chase if the player is in this mob's zone
-        updateMob mob
-            | mobZone mob == playerZone = moveMob dt p mob
-            | otherwise                 = moveMob (dt * otherZoneSpeedFactor) p mob
+        slotAngle i = fromIntegral (i :: Int) * 2.39996
+
+        -- Keep the mob where it was if its new spot isn't walkable
+        safely mob moved =
+            moved { mobPosition = resolveMove walkable (mobPosition mob) (mobPosition moved) }
+
+        updateMob (i, mob)
+            | mobZone mob == playerZone = safely mob (moveMob dt (slotAngle i) p mob)
+            | otherwise                 = safely mob (moveMob (dt * otherZoneSpeedFactor) (slotAngle i) p mob)
 
         oldMobs = mobs world
-        newMobs = map updateMob oldMobs
+        newMobs = map updateMob (zip [0 ..] oldMobs)
         separatedMobs = resolveAllCollisions oldMobs newMobs
     in
         world { mobs = separatedMobs }
-
-
         
 -- Check collisions for all monsters
 resolveAllCollisions :: [Mob] -> [Mob] -> [Mob]

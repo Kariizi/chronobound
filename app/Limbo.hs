@@ -15,6 +15,7 @@ module Limbo
     drawLimbo,
     startView,
     clampView,
+    limboBlocked,
   )
 where
 
@@ -86,7 +87,8 @@ data Limbo = Limbo
     lArt :: M.Map String Art,
     lOrder :: [(Int, Int)],
     lStart :: (Float, Float),
-    lLand :: (Float, Float, Float, Float)
+    lLand :: (Float, Float, Float, Float),
+    lTower :: Maybe (Int, Int)
   }
 
 loadLimbo :: FilePath -> IO Limbo
@@ -100,7 +102,7 @@ loadLimbo folder = do
       (is, js) = (map (fromIntegral . fst) land, map (fromIntegral . snd) land)
       start = case (find ClockTower, find Portal) of
         
-        (t : _, _) -> let (x, y) = tileTop t in (x, y + 8 - 106)
+        (t : _, _) -> let (x, y) = tileTop t in (x, y + 48 )
         ([], p : _) -> tileTop p
         ([], []) -> tileTop (maxI `div` 2, maxJ `div` 2)
   pure
@@ -109,7 +111,8 @@ loadLimbo folder = do
         lArt = art,
         lOrder = sortOn (\(i, j) -> i + j) tiles,
         lStart = start,
-        lLand = (minimum is, maximum is + 1, minimum js, maximum js + 1)
+        lLand = (minimum is, maximum is + 1, minimum js, maximum js + 1),
+        lTower = case find ClockTower of (t : _) -> Just t; [] -> Nothing
       }
 
 loadGrid :: FilePath -> IO Grid
@@ -275,3 +278,46 @@ drawLimbo l view@(vw, vh) (camX, camY) =
               House _ -> [blit view a (x - 16) (y + 16 - artH a)]
               _ -> [blit view a (x - artW a / 2) (y + 8 + fromIntegral below - artH a)]
       _ -> []
+
+-- True if a map point can't be walked on: empty air, ink, houses or the clock tower
+limboBlocked :: Limbo -> (Float, Float) -> Bool
+limboBlocked l (mx, my) =
+  case tileAt l (floor i, floor j) of
+    Void                     -> True
+    Tile Ink _               -> True
+    Tile _ (Just ClockTower) -> True
+    Tile _ (Just TowerBase)  -> True
+    _                        -> any covers nearby || coversTower
+  where
+    i = (mx / 16 + my / 8) / 2
+    j = (my / 8 - mx / 16) / 2
+    nearby = [ (a, b) | a <- [floor i - 2 .. floor i + 8]
+                      , b <- [floor j - 2 .. floor j + 8] ]
+
+    -- houses: same shape as in Victoria, chimneys ignored
+    covers t = case tileAt l t of
+      Tile _ (Just (House style)) ->
+        let name = case style of
+              Ashen -> "house_ashen"
+              Pale  -> "house_pale"
+              Black -> "house_black"
+            a        = lArt l M.! name
+            (hx, hy) = tileTop t
+            dx       = abs (mx - hx)
+            top      = hy + 16 - artH a + dx / 2
+            bottom   = hy + 16 - dx / 2
+         in dx <= 16 && my >= top && my <= bottom
+      _ -> False
+
+    -- the tower stands on a 3x3 base, so it is 3 tiles wide
+    coversTower = case lTower l of
+      Nothing -> False
+      Just t ->
+        let a        = lArt l M.! "clocktower"
+            (hx, hy) = tileTop t
+            halfW    = min 48 (artW a / 2)
+            dx       = abs (mx - hx)
+            base     = hy + 32
+            top      = base - artH a + dx / 2
+            bottom   = base - dx / 2
+         in dx <= halfW && my >= top && my <= bottom

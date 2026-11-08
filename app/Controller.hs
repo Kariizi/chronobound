@@ -1,4 +1,3 @@
-
 module Controller where
 
 import Graphics.Gloss.Interface.Pure.Game
@@ -334,14 +333,15 @@ checkHellTrial world =
         else world
 
 -- Updates the world at every frame
-updateWorld :: Float -> World -> World
-updateWorld dt world
+-- walkable says which world positions are walkable on the current map
+updateWorld :: Walkable -> Float -> World -> World
+updateWorld walkable dt world
     -- Return world with no updates
     | gameState world /= Playing = world
-    | otherwise = updatePlayingWorld dt world
+    | otherwise = updatePlayingWorld walkable dt world
 
-updatePlayingWorld :: Float -> World -> World 
-updatePlayingWorld dt world = 
+updatePlayingWorld :: Walkable -> Float -> World -> World 
+updatePlayingWorld walkable dt world = 
     let 
         p = player world
         keys = heldKeys world
@@ -362,11 +362,13 @@ updatePlayingWorld dt world =
             , facingDirection = newFacing
             }
 
-        -- Move normally or dash
-        movedPlayer =
+        -- Move normally or dash, then stop at walls
+        rawMovedPlayer =
             if isDashing movingPlayer
                 then dashMovement dt movingPlayer
                 else movePlayer dt movingPlayer
+
+        movedPlayer = keepWalkable walkable movingPlayer rawMovedPlayer
 
         -- Update attack and dash timers
         attackUpdatedPlayer = updateAttack dt movedPlayer
@@ -383,7 +385,7 @@ updatePlayingWorld dt world =
         worldWithNumbers = worldWithPlayer
             { damageNumbers = updatedNumbers }
 
-        worldWithMobs = mobAttacks dt (moveMobs dt worldWithNumbers)
+        worldWithMobs = mobAttacks dt (moveMobs walkable dt worldWithNumbers)
 
         -- Update world with snapshots 
         worldWithSnapshot = recordPlayerSnapshot dt worldWithMobs
