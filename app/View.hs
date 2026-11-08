@@ -401,7 +401,6 @@ drawVictory world
             ]
     | otherwise = Blank
 
-
 -- Title screen shown when the game first opens
 drawStartScreen :: World -> Picture
 drawStartScreen world
@@ -416,27 +415,42 @@ drawStartScreen world
                 , translate 70 y (centredText 0.11 white action)
                 ]
 
+            -- Slowly pulse the start instruction
+            pulse = (sin (worldTime world * 3) + 1) / 2
+            startColour = makeColor 1 1 1 (0.4 + 0.6 * pulse)
+
         in pictures
             [ -- Almost opaque so the title stands out over the paused map
-              color (makeColor 0.02 0.01 0.03 0.88) (rectangleSolid windowWidth windowHeight)
+              color (makeColor 0.02 0.01 0.03 0.88)
+                  (rectangleSolid windowWidth windowHeight)
+
+              -- Title shadow
+            , translate 3 187
+                (centredText 0.45 (makeColor 0.2 0.1 0.05 1) "CHRONOBOUND")
 
               -- Title
-            , translate 0 190 (centredText 0.45 gold "CHRONOBOUND")
+            , translate 0 190
+                (centredText 0.45 gold "CHRONOBOUND")
 
               -- Premise
-            , translate 0 125 (centredText 0.11 pale "Your time is your life.")
-            , translate 0 100 (centredText 0.11 pale "Kill to steal more... before it runs out.")
+            , translate 0 125
+                (centredText 0.11 pale "Your time is your life.")
+            , translate 0 100
+                (centredText 0.11 pale "Kill to steal more... before it runs out.")
 
               -- Controls
             , controlLine 40 "WASD" "Move"
             , controlLine 10 "SPACE" "Attack"
             , controlLine (-20) "F" "Dash"
             , controlLine (-50) "R" "Rewind"
+            , controlLine (-80) "ESC" "Pause"
 
               -- Start prompt
-            , translate 0 (-140) (centredText 0.16 white "Press ENTER to begin")
+            , translate 0 (-170)
+                (centredText 0.16 startColour "Press ENTER to begin")
             ]
     | otherwise = Blank
+
 
 -- Upgrade selection screen shown between Hell layers
 drawUpgradeScreen :: World -> Picture
@@ -602,7 +616,7 @@ frameAtProgress anim progress =
         -- Convert progress into animation time = gets the frame we are at
         -- Multiplying percentage of frame we are at by total duration
         animationTime = safeProgress * totalDuration
-
+     -- sda
     -- Show the last frame when finished, otherwise select the current frame
     in if safeProgress >= 1
         then last (animFrames anim)
