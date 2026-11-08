@@ -5,6 +5,7 @@ import Graphics.Gloss
 import Model
 import Combat (isAttacking)
 import Player (isDashing)
+import Mob (distanceToPlayer)
 import qualified Data.Map.Strict as M
 import MapArt
 import Data.Fixed (mod')
@@ -89,7 +90,7 @@ drawWorld sprites world =
                 else Blank
 
         -- Draw all mobs
-        mobPictures = map (drawMob sprites (worldTime world)) (mobs world)
+        mobPictures = map (drawMob sprites (worldTime world) p) (mobs world)
 
         -- Draw floating damage numbers
         damagePictures = map drawDamageNumber (damageNumbers world)
@@ -98,20 +99,55 @@ drawWorld sprites world =
     in pictures (mobPictures ++ [playerPicture, attackPicture] ++ damagePictures)
 
 
--- Draw individual mob using its animation
-drawMob :: M.Map String Animation -> Float -> Mob -> Picture
-drawMob sprites time mob =
+-- How long a mob's attack animation plays after it hits (length of the attack GIF)
+mobAttackAnimDuration :: Float
+mobAttackAnimDuration = 0.65
+
+-- Draw individual mob using the animation matching its current action
+drawMob :: M.Map String Animation -> Float -> Player -> Mob -> Picture
+drawMob sprites time p mob =
     let
-        -- Retrieve mob position
+        -- Retrieve mob and player positions
         (x, y) = mobPosition mob
+        (px, _) = position p
 
-        -- Select animation frame with individual mob offset (breathe for now)
-        art = frameAt (sprites M.! (mobSprite mob ++ "_breathe"))
-            (time + mobAnimOffset mob)
+        -- Time since the mob last hit (cooldown resets to the interval on a hit)
+        timeSinceHit = mobAttackInterval mob - mobAttackCooldown mob
 
+        -- Mob chases when the player is in its zone (same rule as moveMobs)
+        isChasing = mobZone mob == zoneOf (position p)
+
+        -- Close enough to hit, so it stands still instead of walking in place
+        inReach = distanceToPlayer p mob
+            <= playerRadius + mobRadius mob + mobAttackRange mob
+
+        -- Determine which animation the mob should use
+        animationType
+            -- Highest priority: just hit the player
+            | mobAttackCooldown mob > 0 && timeSinceHit < mobAttackAnimDuration = "attack"
+
+            -- Moving towards the player
+            | isChasing && not inReach = "walk"
+
+            -- Otherwise idle
+            | otherwise = "breathe"
+
+        -- Combine character name with animation type
+        animation = sprites M.! (mobSprite mob ++ "_" ++ animationType)
+
+        -- Progress through the attack, 0 at the hit and 1 when the GIF finishes
+        attackProgress = timeSinceHit / mobAttackAnimDuration
+
+        -- Attack plays once, walk and breathe loop (with the mob's own offset)
+        art
+            | animationType == "attack" = frameAtProgress animation attackProgress
+            | otherwise                 = frameAt animation (time + mobAnimOffset mob)
+
+        -- Flip the sprite to face the player
         s = 2
+        sx = if px < x then -s else s
 
-    in translate x y (scale s s (artPic art))
+    in translate x y (scale sx s (artPic art))
 
 
 -- Draw a floating damage number
