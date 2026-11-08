@@ -404,8 +404,7 @@ hellDamageTimeFactor = 0.3
 drainIncreaseInterval :: Float
 drainIncreaseInterval = 60
 
--- How many seconds of time the player loses each second
--- Starts at 1 and goes up the longer the player stays in Victoria
+-- How many seconds of time the player loses each second, increases longer player is in victoria (floor to round whole num)
 drainRateFor :: World -> Int
 drainRateFor world =
     if currentLevel world == VictoriaLevel
@@ -418,8 +417,6 @@ rewindEffectDuration = 0.4
 
 -- BOSS DIALOG:
 
--- What the Clockmaker says before the fight
--- Gloss can't wrap text, so each line is split into a top and bottom half
 bossDialogLines :: [(String, String)]
 bossDialogLines =
     [ ("So you made it all the way down.", "Took you long enough.")

@@ -46,8 +46,8 @@ isMobInRange p mob =
         -- Squared distance from attack centre to mob 
         distanceSquared = (attackX - mx)^2 + (attackY - my)^2 
 
-        -- How far the mob's centre can be from the swing and still get hit
-        -- Adding the mob's radius means touching any part of its body counts
+        -- How far the mob centre can be from the swing and still get hit
+        -- Adding the mob radius means touching any part of its body counts
         hitRadius = meleeHitRadius + mobRadius mob
 
     -- Checks if the distance from mob and centre is less than meaning its inside attack 
@@ -113,8 +113,7 @@ performMeleeAttackMob world =
                 else min (maxHealth p) (health p + timeGained)
 
         updatedPlayer = p {health = newHealth}
-
-        -- Green +N above the player for time actually gained (0 if already at max)
+        
         actualGain = newHealth - health p
         (px, py) = position p
         gainNumbers =

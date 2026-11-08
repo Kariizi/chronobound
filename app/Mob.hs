@@ -214,7 +214,6 @@ updateMobAttack dt p mob =
             in
                 if newLungeTime <= 0
                     -- Lunge has finished, return to chasing
-                    -- Reset the cooldown before the mob can attack again
                     then mob
                         { mobAction = Chasing
                         , mobAttackCooldown = mobAttackInterval mob
@@ -224,7 +223,7 @@ updateMobAttack dt p mob =
                         { mobAction = Lunging newLungeTime direction
                         }
 
--- All mobs attack. Outside Hell the player loses time; in Hell the trial timer drops
+-- All mobs attack. Outside Hell the player loses time, in Hell the trial timer drops
 mobAttacks :: Float -> World -> World
 mobAttacks dt world =
     let

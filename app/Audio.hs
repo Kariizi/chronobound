@@ -118,7 +118,7 @@ swordVolume = 0.4
 playAttackSound :: Music -> World -> World -> IO ()
 playAttackSound music oldWorld newWorld =
     when (attackTimer (player newWorld) > attackTimer (player oldWorld)) $ do
-        -- Slightly different pitch each swing so it doesn't sound repetitive
+        -- Changed pitching
         pitch <- randomRIO (0.9, 1.1)
         _ <- soundPlay (swordSwing music) swordVolume swordVolume 0 pitch
         return ()
