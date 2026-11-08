@@ -6,7 +6,7 @@ import Player
 import Combat
 import Mob
 import Spawn (spawnAllZones)
-import Boss (spawnBoss)
+import Boss (spawnBoss, moveBoss)
 
 -- Handles keyboard events
 handleInput :: Event -> World -> World
@@ -392,7 +392,31 @@ updatePlayingWorld walkable dt world =
         worldWithNumbers = worldWithPlayer
             { damageNumbers = updatedNumbers }
 
-        worldWithMobs = mobAttacks dt (moveMobs walkable dt worldWithNumbers)
+        
+        -- Move the boss separately on the final Hell layer
+        worldAfterMovement =
+            if currentLevel worldWithNumbers == HellLevel
+                && hellLayer worldWithNumbers == finalHellLayer
+                then
+                    let
+                        p = player worldWithNumbers
+                        -- Move the boss and prevent it going through walls
+                        moveOneBoss boss =
+                            let
+                                moved = moveBoss dt p boss
+                                safePosition = resolveMove walkable
+                                    (mobPosition boss)
+                                    (mobPosition moved)
+                            in moved { mobPosition = safePosition }
+
+                    in worldWithNumbers
+                        { mobs = map moveOneBoss (mobs worldWithNumbers) }
+
+                -- Normal enemies use their usual movement
+                else moveMobs walkable dt worldWithNumbers
+
+        -- Update mob attack states and check damage
+        worldWithMobs = mobAttacks dt worldAfterMovement
 
         -- Update world with snapshots 
         worldWithSnapshot = recordPlayerSnapshot dt worldWithMobs

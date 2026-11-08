@@ -43,3 +43,35 @@ spawnBoss = bossEnemy
     { mobPosition = bossSpawnPosition
     , mobZone = zoneOf bossSpawnPosition
     }
+
+-- BOSS MOVEMENTS:
+
+-- Move the boss towards the player
+moveBoss :: Float -> Player -> Mob -> Mob
+moveBoss dt p boss =
+    let
+        (px, py) = position p
+        (bx, by) = mobPosition boss
+
+        -- Calculate direction (x and y) + distance 
+        dx = px - bx
+        dy = py - by
+        distance = sqrt (dx * dx + dy * dy)
+
+        -- Distance boss needs to attack
+        stopDistance = playerRadius + mobRadius boss + mobAttackRange boss
+
+        -- Gets minimum between how close boss needs to get and distance it can move this frame
+        travelDistance = max 0 (min (distance - stopDistance) (mobSpeed boss * dt))
+
+        (newX, newY)
+            | distance <= stopDistance = (bx, by)
+            | otherwise = 
+                -- Normalise direction then times by unit it can move
+                ( bx + (dx / distance) * travelDistance
+                , by + (dy / distance) * travelDistance
+                )
+
+    in boss { mobPosition = (newX, newY) }
+
+-- BOSS ATTACKS:
