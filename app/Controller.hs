@@ -5,7 +5,7 @@ import Model
 import Player
 import Combat
 import Mob
-import Spawn (spawnAllZones)
+import Spawn (spawnAllZones, respawnIfCleared, unstickMobs, strengthenMob)
 import Boss (spawnBoss, moveBoss)
 
 -- Handles keyboard events
@@ -111,9 +111,9 @@ normaliseVelocity (vx, vy) =
 -- Level Functionality: Switching between Levels and Entering Dimensions 
 levelDependingOnHP :: Level -> Int -> Level 
 levelDependingOnHP level health 
-    | level == VictoriaLevel && health < 30 = LimboLevel
+    | level == VictoriaLevel && health < limboEnterTime = LimboLevel
     | level == LimboLevel && health <= 0 = HellLevel
-    | level == LimboLevel && health > 40 = VictoriaLevel
+    | level == LimboLevel && health > limboExitTime = VictoriaLevel
     | otherwise = level 
 
 -- Hell Level Functionality 
@@ -145,7 +145,17 @@ enterLevel newLevel world =
         (newMobs, updatedGenerator) =
             if newLevel == HellLevel && (newHellLayer == finalHellLayer)
                 then ([spawnBoss], rng world)
-                else spawnAllZones 3 newLevel (rng world)
+            -- Hell mobs get tougher the deeper the layer
+            else if newLevel == HellLevel
+                then
+                    let (hellMobs, generator) = spawnAllZones 3 newLevel (rng world)
+                    in (map (strengthenMob newHellLayer) hellMobs, generator)
+            -- Coming back to Victoria keeps the wave difficulty the player reached
+            else if newLevel == VictoriaLevel
+                then
+                    let (victoriaMobs, generator) = spawnAllZones 3 newLevel (rng world)
+                    in (map (strengthenMob (victoriaWave world)) victoriaMobs, generator)
+            else spawnAllZones 3 newLevel (rng world)
 
         -- Check whether we're entering Hell
         enteringHell = newLevel == HellLevel
@@ -263,7 +273,7 @@ applyHellUpgrade upgrade world =
                 }
 
 
--- Choose an upgrade and move to the next Hell layer
+-- Choose an upgrade (in Hell this also moves to the next layer)
 chooseUpgrade :: Int -> World -> World
 chooseUpgrade choice world =
     let
@@ -288,6 +298,13 @@ chooseUpgrade choice world =
                 -- Apply the selected upgrade
                 upgradedWorld = applyHellUpgrade selectedUpgrade world
 
+                -- Upgrades earned in Victoria just go back to the fight
+                victoriaWorld = upgradedWorld
+                    { gameState = Playing
+                    , upgradeChoices = []
+                    , heldKeys = []
+                    }
+
                 -- Move to the next Hell layer
                 nextLayer = hellLayer upgradedWorld + 1
 
@@ -299,8 +316,10 @@ chooseUpgrade choice world =
                     , heldKeys = []
                     }
 
-            -- Enter the next Hell layer
-            in enterLevel HellLevel updatedWorld
+            in
+                if currentLevel world == VictoriaLevel
+                    then victoriaWorld
+                    else enterLevel HellLevel updatedWorld
 
 
 -- FOR HELL: CHECKS IF YOU WIN OR LOSE
@@ -381,7 +400,9 @@ updatePlayingWorld walkable dt world =
         attackUpdatedPlayer = updateAttack dt movedPlayer
         dashUpdatedPlayer = updateDash dt attackUpdatedPlayer
         rewindUpdatedPlayer = updateRewind dt dashUpdatedPlayer
-        updatedPlayer = drainTime dt rewindUpdatedPlayer
+        -- Time drains faster the longer the player has stayed in Victoria
+        drainSpeed = fromIntegral (drainRateFor world)
+        updatedPlayer = drainTime (dt * drainSpeed) rewindUpdatedPlayer
 
         -- Store updated player in world (update the player in world)
         worldWithPlayer = world { player = updatedPlayer }
@@ -416,7 +437,10 @@ updatePlayingWorld walkable dt world =
                 else moveMobs walkable dt worldWithNumbers
 
         -- Update mob attack states and check damage
-        worldWithMobs = mobAttacks dt worldAfterMovement
+        worldAfterAttacks = mobAttacks dt worldAfterMovement
+
+        -- Send a new wave if the map is cleared, and move any mob stuck inside a building
+        worldWithMobs = unstickMobs walkable (respawnIfCleared worldAfterAttacks)
 
         -- Update world with snapshots 
         worldWithSnapshot = recordPlayerSnapshot dt worldWithMobs
@@ -440,9 +464,15 @@ updatePlayingWorld walkable dt world =
         -- Check whether Death's Trial has ended
         worldWithTrialResult = checkHellTrial worldWithHellTimer
 
-    -- Update mobs using the new player position
+        -- Time spent in Victoria (for the faster drain)
+        timeInVictoria =
+            if currentLevel world == VictoriaLevel
+                then victoriaTime world + dt
+                else victoriaTime world
+
     in worldWithTrialResult
         { worldTime = worldTime world + dt
-        -- Fade out the rewind effect
+        , victoriaTime = timeInVictoria
         , rewindEffectTimer = max 0 (rewindEffectTimer worldWithTrialResult - dt)
+        , waveClearedTimer = max 0 (waveClearedTimer worldWithTrialResult - dt)
         }

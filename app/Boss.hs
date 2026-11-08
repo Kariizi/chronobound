@@ -6,25 +6,16 @@ module Boss where
 import Model
 
 -- The boss's stats, based on initialMob
--- (player melee does 3 damage, so mobHealth / 3 = hits needed)
+-- (player melee does 4 damage, so mobHealth / 4 = hits needed)
 bossEnemy :: Mob
 bossEnemy = initialMob
     { mobSprite = "boss"
-
-    -- 120 HP = 40 hits
     , mobHealth = 120
     , mobMaxHealth = 120
-
-    -- Slower than a normal mob (80) so the player can keep their distance
     , mobSpeed = 60
-
-    -- Hurts much more than a tank (10)
     , mobDamage = 15
-
-    -- Bigger body and slightly longer reach than a tank (20 and 8)
     , mobRadius = 30
     , mobAttackRange = 12
-
     -- Seconds between attacks
     , mobAttackInterval = 1.2
     }

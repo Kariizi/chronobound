@@ -32,6 +32,10 @@ data World = World
     -- Rewind effect: time left on the effect, and where the player rewound from
     , rewindEffectTimer :: Float
     , rewindFrom :: (Float, Float)
+    -- Victoria wave get harder based on waves cleared and time
+    , victoriaWave :: Int
+    , victoriaTime :: Float
+    , waveClearedTimer :: Float
     } deriving (Show, Eq)
 
 -- Storing information about the player
@@ -256,9 +260,9 @@ initialPlayer =
         , velocity = (0,0)
         , facingDirection = (1,0)
         , health = 100
-        , maxHealth = 300
+        , maxHealth = 150
         , moveSpeed = 200.0
-        , attackDamage = 3
+        , attackDamage = 4
         , attackTimer = 0
         , cooldownRemaining = 0
         , dashTimer = 0
@@ -279,7 +283,7 @@ dashSpeed :: Float
 dashSpeed = 800
 
 dashDuration :: Float
-dashDuration = 0.3
+dashDuration = 0.25
 
 dashCooldown :: Float
 dashCooldown = 0.8
@@ -288,10 +292,19 @@ meleeAttackDistance :: Float
 meleeAttackDistance = 40
 
 meleeHitRadius :: Float
-meleeHitRadius = 35
+meleeHitRadius = 45
 
 rewindCooldown :: Float
 rewindCooldown = 5.0
+
+-- Drop below this much time in Victoria and you fall into Limbo
+limboEnterTime :: Int
+limboEnterTime = 40
+
+-- Get back above this much time in Limbo to escape to Victoria
+-- (keep it well above limboEnterTime or the player bounces between the two)
+limboExitTime :: Int
+limboExitTime = 52
 
 -- Time allowed to complete Deaths Trial
 hellTrialDuration :: Float
@@ -355,7 +368,39 @@ initialWorld =
         -- No rewind effect playing at the start
         , rewindEffectTimer = 0
         , rewindFrom = (0, 0)
+        -- Start on the first wave with no time spent in Victoria
+        , victoriaWave = 1
+        , victoriaTime = 0
+        , waveClearedTimer = 0
         }
+
+-- How long the "WAVE CLEARED" message stays on screen (seconds)
+waveClearedDuration :: Float
+waveClearedDuration = 2
+
+-- Victoria gives an upgrade after every this many cleared waves
+wavesPerUpgrade :: Int
+wavesPerUpgrade = 3
+
+-- Upgrades offered in Victoria (no Hell time, because it only works in Hell)
+victoriaUpgradeSelection :: [Upgrade]
+victoriaUpgradeSelection =
+    [ HealthUpgrade 20
+    , DamageUpgrade 1
+    , SpeedUpgrade 30
+    ]
+
+-- Every this many seconds spent in Victoria, time drains 1 second faster
+drainIncreaseInterval :: Float
+drainIncreaseInterval = 60
+
+-- How many seconds of time the player loses each second
+-- Starts at 1 and goes up the longer the player stays in Victoria
+drainRateFor :: World -> Int
+drainRateFor world =
+    if currentLevel world == VictoriaLevel
+        then 1 + floor (victoriaTime world / drainIncreaseInterval)
+        else 1
 
 -- How long the rewind flash, ring and streak last (seconds)
 rewindEffectDuration :: Float

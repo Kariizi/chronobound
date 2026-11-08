@@ -201,7 +201,61 @@ drawHUD world =
                 then drawHellHUD world
                 else Blank
 
-    in pictures [drawRewindFlash world, timeHUD, hellHUD]
+        -- Wave number and drain speed under the clock, only shown in Victoria
+        waveHUD =
+            if currentLevel world == VictoriaLevel
+                then drawWaveInfo world
+                else Blank
+
+    in pictures [drawRewindFlash world, timeHUD, waveHUD, hellHUD, drawWaveCleared world]
+
+
+-- "WAVE CLEARED" message that fades out after a wave is beaten
+drawWaveCleared :: World -> Picture
+drawWaveCleared world =
+    let
+        timeLeft = waveClearedTimer world
+        alpha = min 1 (timeLeft / 0.5)
+        title =
+            if currentLevel world == VictoriaLevel
+                then "WAVE " ++ show (victoriaWave world - 1) ++ " CLEARED"
+                else "WAVE CLEARED"
+        subtitle =
+            if currentLevel world == VictoriaLevel
+                then "The next wave is stronger..."
+                else "More are coming..."
+    in
+        if timeLeft <= 0
+            then Blank
+            else translate 0 150
+                (pictures
+                    [ translate 2 (-2) (centredText 0.3 (makeColor 0.2 0.1 0.05 alpha) title)
+                    , centredText 0.3 (makeColor 1 0.8 0.3 alpha) title
+                    , translate 0 (-35) (centredText 0.11 (makeColor 0.8 0.78 0.85 alpha) subtitle)
+                    ])
+
+-- Shows which Victoria wave the player is on and how fast their time is draining
+drawWaveInfo :: World -> Picture
+drawWaveInfo world =
+    let
+        waveText = "WAVE " ++ show (victoriaWave world)
+        drainText = "-" ++ show (drainRateFor world) ++ "s / sec"
+
+        -- Drain text turns red once it's faster than normal
+        drainColour =
+            if drainRateFor world > 1
+                then makeColor 0.95 0.3 0.25 1
+                else makeColor 0.8 0.78 0.85 1
+
+        -- Sits just under the clock in the top-left
+        infoX = -worldHalfWidth + 65
+        infoY = worldHalfHeight - 125
+
+    in translate infoX infoY
+        (pictures
+            [ centredText 0.1 (makeColor 1 0.8 0.3 1) waveText
+            , translate 0 (-18) (centredText 0.08 drainColour drainText)
+            ])
 
 
 -- Draw the player's remaining time as a clock
@@ -220,11 +274,12 @@ drawTimeClock world =
         ringThickness = 4
 
         -- Colour of clock depending on remaining time
+        -- Red in Limbo, purple when getting close to falling into it
         clockColour
-            | currentLevel world == LimboLevel || currentHP < 30 =
+            | currentLevel world == LimboLevel || currentHP < limboEnterTime =
                 makeColor 0.9 0.2 0.2 1
 
-            | currentHP <= 40 =
+            | currentHP < limboEnterTime + 10 =
                 makeColor 0.65 0.4 0.9 1
 
             | otherwise =
@@ -542,6 +597,11 @@ drawUpgradeScreen world
             choices = upgradeChoices world
             count = length choices
 
+            blessingText =
+                if currentLevel world == VictoriaLevel
+                    then "The Clock rewards your hunt..."
+                    else "Death grants you one blessing..."
+
             -- Space between card centres
             cardSpacing = 240
 
@@ -562,7 +622,7 @@ drawUpgradeScreen world
 
               -- Title
             , translate 0 190 (centredText 0.3 ivory "CHOOSE AN UPGRADE")
-            , translate 0 150 (centredText 0.11 (makeColor 0.7 0.65 0.6 1) "Death grants you one blessing...")
+            , translate 0 150 (centredText 0.11 (makeColor 0.7 0.65 0.6 1) blessingText)
             ]
             ++ cards ++
             [ -- How to choose
