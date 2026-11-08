@@ -22,6 +22,10 @@ data World = World
     , hellKills :: Int 
     , gameState :: GameState
     , hellLayer :: Int 
+    -- Storing Upgrades
+    , upgradeChoices :: [Upgrade]
+    -- Bonus Hell Time
+    , bonusHellTime :: Float
     -- For generating Mobs
     , rng :: StdGen
     } deriving (Show, Eq)
@@ -93,6 +97,7 @@ data Level
 -- Stores gameState:
 data GameState 
     = Playing
+    | ChoosingUpgrade
     | GameOver
     | Victory
     deriving (Show, Eq)
@@ -175,6 +180,7 @@ zoneOf (x, y)
 -- Declaring Upgrade Types:
 data Upgrade
     = HealthUpgrade Int
+    | TimeUpgrade Float
     | SpeedUpgrade Float
     | DamageUpgrade Int
     deriving (Show, Eq)
@@ -263,6 +269,8 @@ initialWorld =
         , hellKills = 0
         , hellLayer = 1
         , gameState = Playing
+        , upgradeChoices = []
+        , bonusHellTime = 0
         -- For generating Mobs
         , rng = mkStdGen 0
         }

@@ -50,8 +50,25 @@ drawLevel ms level (px, py) =
 
 -- Takes the starting world so Enter can restart the game after Game Over
 handleLevelInput :: World -> Event -> World -> World
+
+-- Handle upgrade selection
+handleLevelInput _ event world
+    | gameState world == ChoosingUpgrade =
+        case event of
+            -- Select first upgrade
+            EventKey (Char '1') Down _ _ -> chooseUpgrade 1 world
+
+            -- Select second upgrade
+            EventKey (Char '2') Down _ _ -> chooseUpgrade 2 world
+
+            -- Select third upgrade
+            EventKey (Char '3') Down _ _ -> chooseUpgrade 3 world
+
+            -- Ignore other keys while choosing
+            _ -> world
+
+-- For Victory or Game Over
 handleLevelInput startingWorld event world
-    -- Game Over
     | gameState world /= Playing =
         case event of
             EventKey (SpecialKey KeyEnter) Down _ _ -> startingWorld
@@ -208,6 +225,9 @@ main = do
 
                   -- Victory screen after the boss is defeated
                 , drawVictory world
+
+                  -- Upgrade selection screen between Hell layers
+                , drawUpgradeScreen world
                 ])
 
         -- Handle movement, attacks, dash, rewind, level debug keys and restarting

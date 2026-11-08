@@ -304,6 +304,91 @@ drawVictory world
     | otherwise = Blank
 
 
+-- Upgrade selection screen shown between Hell layers
+drawUpgradeScreen :: World -> Picture
+drawUpgradeScreen world
+    | gameState world == ChoosingUpgrade =
+        let
+            choices = upgradeChoices world
+            count = length choices
+
+            -- Space between card centres
+            cardSpacing = 240
+
+            -- Centre the row of cards whatever the number of choices
+            cardX index = (fromIntegral index - (fromIntegral count + 1) / 2) * cardSpacing
+
+            -- Pair each upgrade with its key number (1, 2, 3)
+            cards =
+                [ translate (cardX index) (-10) (drawUpgradeCard index upgrade)
+                | (index, upgrade) <- zip [1 ..] choices
+                ]
+
+            ivory = makeColor 0.95 0.9 0.75 1
+
+        in pictures (
+            [ -- Dim the game behind the screen
+              color (makeColor 0 0 0 0.75) (rectangleSolid windowWidth windowHeight)
+
+              -- Title
+            , translate 0 190 (centredText 0.3 ivory "CHOOSE AN UPGRADE")
+            , translate 0 150 (centredText 0.11 (makeColor 0.7 0.65 0.6 1) "Death grants you one blessing...")
+            ]
+            ++ cards ++
+            [ -- How to choose
+              translate 0 (-170) (centredText 0.13 white "PRESS 1, 2 OR 3 TO CHOOSE")
+            ])
+    | otherwise = Blank
+
+-- One upgrade card: key number, name and effect, coloured by upgrade type
+drawUpgradeCard :: Int -> Upgrade -> Picture
+drawUpgradeCard index upgrade =
+    let
+        cardWidth = 200
+        cardHeight = 180
+
+        accent = upgradeColour upgrade
+
+        -- Darker version of the accent for the card background
+        background = color (makeColor 0.08 0.06 0.08 0.95) (rectangleSolid cardWidth cardHeight)
+
+        -- Double border in the accent colour
+        border = color accent (pictures
+            [ rectangleWire cardWidth cardHeight
+            , rectangleWire (cardWidth - 8) (cardHeight - 8)
+            ])
+
+        keyLabel = translate 0 50 (centredText 0.22 accent ("[" ++ show index ++ "]"))
+        title = translate 0 0 (centredText 0.11 white (upgradeTitle upgrade))
+        description = translate 0 (-40) (centredText 0.09 accent (upgradeDescription upgrade))
+
+    in pictures [background, border, keyLabel, title, description]
+
+-- Name shown on each upgrade card
+upgradeTitle :: Upgrade -> String
+upgradeTitle upgrade = case upgrade of
+    TimeUpgrade _   -> "Borrowed Time"
+    DamageUpgrade _ -> "Sharpened Blade"
+    SpeedUpgrade _  -> "Fleeting Step"
+    HealthUpgrade _ -> "Stolen Years"
+
+-- Short effect text (kept short because Gloss text does not wrap)
+upgradeDescription :: Upgrade -> String
+upgradeDescription upgrade = case upgrade of
+    TimeUpgrade amount   -> "+" ++ show (round amount :: Int) ++ " seconds"
+    DamageUpgrade amount -> "+" ++ show amount ++ " damage"
+    SpeedUpgrade amount  -> "+" ++ show (round amount :: Int) ++ " movement speed"
+    HealthUpgrade amount -> "+" ++ show amount ++ " max time"
+
+-- Accent colour for each upgrade type
+upgradeColour :: Upgrade -> Color
+upgradeColour upgrade = case upgrade of
+    TimeUpgrade _   -> makeColor 1 0.75 0.3 1      -- gold
+    DamageUpgrade _ -> makeColor 0.85 0.25 0.25 1  -- crimson
+    SpeedUpgrade _  -> makeColor 0.45 0.8 0.85 1   -- pale teal
+    HealthUpgrade _ -> makeColor 0.5 0.85 0.5 1    -- green
+
+
 -- Which frame of an animation to show at time t (loops forever)
 frameAt :: Animation -> Float -> Art
 frameAt anim t = go (animFrames anim) (animDelays anim) (t `mod'` total)

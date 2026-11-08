@@ -161,7 +161,7 @@ enterLevel newLevel world =
         -- Reset the timer only when entering Hell
         newHellTime =
             if enteringHell
-                then hellTrialDuration
+                then hellTrialDuration + bonusHellTime world
                 else hellTimeRemaining world
 
         -- Reset Hell kills only when entering Hell
@@ -189,6 +189,10 @@ enterLevel newLevel world =
         , hellTimeRemaining = newHellTime
         , hellKills = newHellKills
         , hellLayer = newHellLayer
+        , bonusHellTime =
+            if enteringHell
+                then 0
+                else bonusHellTime world
         }
 
 
@@ -217,6 +221,86 @@ updateDamageNumbers dt numbers =
 
     in activeNumbers
 
+-- FOR UPGRADING
+hellUpgradeSelection :: [Upgrade]
+hellUpgradeSelection =
+    [ TimeUpgrade 15
+    , DamageUpgrade 2
+    , SpeedUpgrade 40
+    ]
+
+-- Applies the chosen upgrade to the player or Hell timer
+applyHellUpgrade :: Upgrade -> World -> World
+applyHellUpgrade upgrade world =
+    let
+        p = player world
+    in case upgrade of
+        -- Store extra time for the next Hell layer
+        TimeUpgrade extraTime ->
+            world
+                { bonusHellTime = bonusHellTime world + extraTime }
+        -- Increase the player's attack damage
+        DamageUpgrade extraDamage ->
+            world
+                { player = p
+                    { attackDamage = attackDamage p + extraDamage }
+                }
+        -- Increase the player's movement speed
+        SpeedUpgrade extraSpeed ->
+            world
+                { player = p
+                    { moveSpeed = moveSpeed p + extraSpeed }
+                }
+        -- Existing health upgrade, kept for compatibility
+        HealthUpgrade extraHealth ->
+            world
+                { player = p
+                    { maxHealth = maxHealth p + extraHealth
+                    , health = health p + extraHealth
+                    }
+                }
+
+
+-- Choose an upgrade and move to the next Hell layer
+chooseUpgrade :: Int -> World -> World
+chooseUpgrade choice world =
+    let
+        -- Retrieve the available upgrades
+        choices = upgradeChoices world
+
+        -- Convert the selected key to a list index
+        index = choice - 1
+
+        -- Check whether the selected upgrade is valid
+        validChoice = index >= 0 && index < length choices
+
+    in
+        if gameState world /= ChoosingUpgrade || not validChoice
+            then world
+
+        else
+            let
+                -- Retrieve the selected upgrade
+                selectedUpgrade = choices !! index
+
+                -- Apply the selected upgrade
+                upgradedWorld = applyHellUpgrade selectedUpgrade world
+
+                -- Move to the next Hell layer
+                nextLayer = hellLayer upgradedWorld + 1
+
+                -- Update the layer and resume gameplay
+                updatedWorld = upgradedWorld
+                    { hellLayer = nextLayer
+                    , gameState = Playing
+                    , upgradeChoices = []
+                    , heldKeys = []
+                    }
+
+            -- Enter the next Hell layer
+            in enterLevel HellLevel updatedWorld
+
+
 -- FOR HELL: CHECKS IF YOU WIN OR LOSE
 checkHellTrial :: World -> World 
 checkHellTrial world = 
@@ -238,12 +322,11 @@ checkHellTrial world =
                     then world { gameState = Victory }
                 -- Move to the next layer
                 else
-                    let
-                        nextLayer = currentLayer + 1
-                        -- Store the new layer before entering Hell again
-                        updatedWorld = world { hellLayer = nextLayer }
-                    -- Reset timer, kills, mobs and position
-                    in enterLevel HellLevel updatedWorld
+                    world
+                        { gameState = ChoosingUpgrade
+                        , upgradeChoices = hellUpgradeSelection
+                        , heldKeys = []
+                        }
         -- Trial failed
         else if trialLost
             then world { gameState = GameOver }
