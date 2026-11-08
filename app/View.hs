@@ -187,8 +187,8 @@ drawTimeClock world =
         timeFraction = max 0 (min 1 (fromIntegral currentHP / displayMaxTime))
 
         -- Clock dimensions
-        clockRadius = 38
-        ringThickness = 5
+        clockRadius = 34
+        ringThickness = 4
 
         -- Colour of clock depending on remaining time
         clockColour
@@ -214,10 +214,14 @@ drawTimeClock world =
         -- Calculate how much of the circular ring is filled
         filledAngle = 360 * timeFraction
 
-        -- Draw remaining time as a circular arc
-        clockFill =
-            color clockColour
-                (thickArc (90 - filledAngle) 90 clockRadius ringThickness)
+        -- Draw remaining time as a circular arc, filling clockwise from 12 o'clock
+        -- (drawn from 0 then rotated, because Gloss swaps arc angles that wrap past 0)
+        clockFill
+            | timeFraction <= 0 = Blank
+            | otherwise =
+                rotate (filledAngle - 90)
+                    (color clockColour
+                        (thickArc 0 filledAngle clockRadius ringThickness))
 
         -- Draw small clock markings
         clockTicks =
@@ -229,12 +233,15 @@ drawTimeClock world =
                 ]
 
         -- Display remaining time inside the clock
+        -- Number and label are stacked so the pair sits centred on the clock face
+        -- (small x nudges because Gloss letters are wider than centredText assumes,
+        --  so centred text ends up slightly left)
         timeNumber =
-            translate 0 4
-                (centredText 0.22 white (show currentHP))
+            translate 5 7
+                (centredText 0.19 white (show currentHP))
 
         timeLabel =
-            translate 0 (-14)
+            translate 6 (-13)
                 (centredText 0.08 clockColour "TIME")
 
         -- Position clock near top-left
