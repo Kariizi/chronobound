@@ -6,6 +6,7 @@ import Player
 import Combat
 import Mob
 import Spawn (spawnAllZones)
+import Boss (spawnBoss)
 
 -- Handles keyboard events
 handleInput :: Event -> World -> World
@@ -140,10 +141,11 @@ enterLevel newLevel world =
         -- Reset the player's position
         updatedPlayer = p { position = (0, 0) }
 
-        -- Generate new mobs using the world's current random generator
-        -- 3 mobs per zone = 12 mobs in total
+        -- new mobs generated using random gen, 3 mobs per zone = 12 mobs in total
         (newMobs, updatedGenerator) =
-            spawnAllZones 3 newLevel (rng world)
+            if newLevel == HellLevel && (newHellLayer == finalHellLayer)
+                then ([spawnBoss], rng world)
+                else spawnAllZones 3 newLevel (rng world)
 
         -- Check whether we're entering Hell
         enteringHell = newLevel == HellLevel

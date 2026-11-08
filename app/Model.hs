@@ -299,7 +299,7 @@ hellTrialDuration = 60
 
 -- The final layer of Hell contains the boss
 finalHellLayer :: Int
-finalHellLayer = 3
+finalHellLayer = 4
 
 -- Maximum Time for Levels
 displayMaxTime :: Float
@@ -324,7 +324,7 @@ requiredKillsFor :: Int -> Int
 requiredKillsFor layer
     | layer == 1 = 5
     | layer == 2 = 8
-    | layer == 3 = 1
+    | layer == 3 = 10
     | otherwise = 1
 
 -- Number of kills required to escape Hell
