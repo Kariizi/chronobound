@@ -171,15 +171,32 @@ respawnIfCleared world =
         -- Only Victoria and Limbo get new waves
         notInHell = currentLevel world /= HellLevel
 
+        inVictoria = currentLevel world == VictoriaLevel
+
     in
         if allMobsDead && notInHell
             then
                 let
+                    nextWave =
+                        if inVictoria
+                            then victoriaWave world + 1
+                            else victoriaWave world
+
                     -- Spawn 3 new mobs in every zone
                     (newWave, newGenerator) =
                         spawnAllZones 3 (currentLevel world) (rng world)
 
-                in world { mobs = newWave, rng = newGenerator }
+                    -- Strengthen victoria wave
+                    toughenedWave =
+                        if inVictoria
+                            then map (strengthenMob nextWave) newWave
+                            else newWave
+
+                in world
+                    { mobs = toughenedWave
+                    , rng = newGenerator
+                    , victoriaWave = nextWave
+                    }
 
             else world
 
@@ -236,22 +253,21 @@ findWalkablePosition walkable zone triesLeft generator =
             else findWalkablePosition walkable zone (triesLeft - 1) generator1
 
 
--- Hell difficulty - Mobs get stronger the deeper the Hell layer
-scaleForHellLayer :: Int -> Mob -> Mob
-scaleForHellLayer layer mob =
+-- Increase difficulty of wave
+strengthenMob :: Int -> Mob -> Mob
+strengthenMob layer mob =
     let
         -- How many layers deeper than layer 1 we are
         layersDeep = max 0 (layer - 1)
         layersDeepFloat = fromIntegral layersDeep
-
         -- Increase health by 25% per layer
         newHealth = round (fromIntegral (mobMaxHealth mob) * (1 + 0.25 * layersDeepFloat))
         -- Increase damage by 1 per layer
         newDamage = mobDamage mob + layersDeep
         -- Increase speed by 10% per layer
         newSpeed = mobSpeed mob * (1 + 0.1 * layersDeepFloat)
-        -- Attack 10% more often per layer
-        newAttackInterval = mobAttackInterval mob * (1 - 0.1 * layersDeepFloat)
+        -- Attack 10% more often per layer (but never faster than every 0.4 seconds)
+        newAttackInterval = max 0.4 (mobAttackInterval mob * (1 - 0.1 * layersDeepFloat))
     in mob
         { mobHealth = newHealth
         , mobMaxHealth = newHealth

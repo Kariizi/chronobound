@@ -5,7 +5,7 @@ import Model
 import Player
 import Combat
 import Mob
-import Spawn (spawnAllZones, respawnIfCleared, unstickMobs, scaleForHellLayer)
+import Spawn (spawnAllZones, respawnIfCleared, unstickMobs, strengthenMob)
 import Boss (spawnBoss, moveBoss)
 
 -- Handles keyboard events
@@ -149,7 +149,12 @@ enterLevel newLevel world =
             else if newLevel == HellLevel
                 then
                     let (hellMobs, generator) = spawnAllZones 3 newLevel (rng world)
-                    in (map (scaleForHellLayer newHellLayer) hellMobs, generator)
+                    in (map (strengthenMob newHellLayer) hellMobs, generator)
+            -- Coming back to Victoria keeps the wave difficulty the player reached
+            else if newLevel == VictoriaLevel
+                then
+                    let (victoriaMobs, generator) = spawnAllZones 3 newLevel (rng world)
+                    in (map (strengthenMob (victoriaWave world)) victoriaMobs, generator)
             else spawnAllZones 3 newLevel (rng world)
 
         -- Check whether we're entering Hell
@@ -386,7 +391,9 @@ updatePlayingWorld walkable dt world =
         attackUpdatedPlayer = updateAttack dt movedPlayer
         dashUpdatedPlayer = updateDash dt attackUpdatedPlayer
         rewindUpdatedPlayer = updateRewind dt dashUpdatedPlayer
-        updatedPlayer = drainTime dt rewindUpdatedPlayer
+        -- Time drains faster the longer the player has stayed in Victoria
+        drainSpeed = fromIntegral (drainRateFor world)
+        updatedPlayer = drainTime (dt * drainSpeed) rewindUpdatedPlayer
 
         -- Store updated player in world (update the player in world)
         worldWithPlayer = world { player = updatedPlayer }
@@ -448,9 +455,14 @@ updatePlayingWorld walkable dt world =
         -- Check whether Death's Trial has ended
         worldWithTrialResult = checkHellTrial worldWithHellTimer
 
-    -- Update mobs using the new player position
+        -- Time spent in Victoria (for the faster drain)
+        timeInVictoria =
+            if currentLevel world == VictoriaLevel
+                then victoriaTime world + dt
+                else victoriaTime world
+
     in worldWithTrialResult
         { worldTime = worldTime world + dt
-        -- Fade out the rewind effect
+        , victoriaTime = timeInVictoria
         , rewindEffectTimer = max 0 (rewindEffectTimer worldWithTrialResult - dt)
         }

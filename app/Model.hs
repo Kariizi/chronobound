@@ -32,6 +32,9 @@ data World = World
     -- Rewind effect: time left on the effect, and where the player rewound from
     , rewindEffectTimer :: Float
     , rewindFrom :: (Float, Float)
+    -- Victoria wave get harder based on waves cleared and time
+    , victoriaWave :: Int
+    , victoriaTime :: Float
     } deriving (Show, Eq)
 
 -- Storing information about the player
@@ -364,7 +367,22 @@ initialWorld =
         -- No rewind effect playing at the start
         , rewindEffectTimer = 0
         , rewindFrom = (0, 0)
+        -- Start on the first wave with no time spent in Victoria
+        , victoriaWave = 1
+        , victoriaTime = 0
         }
+
+-- Every this many seconds spent in Victoria, time drains 1 second faster
+drainIncreaseInterval :: Float
+drainIncreaseInterval = 60
+
+-- How many seconds of time the player loses each second
+-- Starts at 1 and goes up the longer the player stays in Victoria
+drainRateFor :: World -> Int
+drainRateFor world =
+    if currentLevel world == VictoriaLevel
+        then 1 + floor (victoriaTime world / drainIncreaseInterval)
+        else 1
 
 -- How long the rewind flash, ring and streak last (seconds)
 rewindEffectDuration :: Float
