@@ -66,3 +66,20 @@ moveBoss dt p boss =
     in boss { mobPosition = (newX, newY) }
 
 -- BOSS ATTACKS:
+
+-- Stats used once the boss drops to half health
+enragedSpeed :: Float
+enragedSpeed = 95
+
+enragedAttackInterval :: Float
+enragedAttackInterval = 0.7
+
+-- Below half health the boss speeds up and attacks more often.
+-- It sets fixed values, so running it every frame is harmless.
+enrageBoss :: Mob -> Mob
+enrageBoss boss
+    | mobHealth boss * 2 <= mobMaxHealth boss =
+        boss { mobSpeed = enragedSpeed
+             , mobAttackInterval = min (mobAttackInterval boss) enragedAttackInterval
+             }
+    | otherwise = boss
