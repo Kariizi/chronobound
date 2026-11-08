@@ -222,7 +222,7 @@ rewindCooldown = 5.0
 
 -- Time allowed to complete Deaths Trial
 hellTrialDuration :: Float
-hellTrialDuration = 30
+hellTrialDuration = 60
 
 -- Number of kills required to escape Hell
 hellRequiredKills :: Int
@@ -241,7 +241,7 @@ initialWorld =
         , worldTime = 0
         , currentLevel = VictoriaLevel
         -- For hell
-        , hellTimeRemaining = 60
+        , hellTimeRemaining = hellTrialDuration
         , hellKills = 0
         , gameState = Playing
         }
