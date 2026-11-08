@@ -256,9 +256,9 @@ initialPlayer =
         , velocity = (0,0)
         , facingDirection = (1,0)
         , health = 100
-        , maxHealth = 300
+        , maxHealth = 150
         , moveSpeed = 200.0
-        , attackDamage = 3
+        , attackDamage = 4
         , attackTimer = 0
         , cooldownRemaining = 0
         , dashTimer = 0
@@ -279,7 +279,7 @@ dashSpeed :: Float
 dashSpeed = 800
 
 dashDuration :: Float
-dashDuration = 0.3
+dashDuration = 0.25
 
 dashCooldown :: Float
 dashCooldown = 0.8
@@ -292,6 +292,15 @@ meleeHitRadius = 35
 
 rewindCooldown :: Float
 rewindCooldown = 5.0
+
+-- Drop below this much time in Victoria and you fall into Limbo
+limboEnterTime :: Int
+limboEnterTime = 40
+
+-- Get back above this much time in Limbo to escape to Victoria
+-- (keep it well above limboEnterTime or the player bounces between the two)
+limboExitTime :: Int
+limboExitTime = 52
 
 -- Time allowed to complete Deaths Trial
 hellTrialDuration :: Float

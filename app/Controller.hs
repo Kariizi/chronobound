@@ -111,9 +111,9 @@ normaliseVelocity (vx, vy) =
 -- Level Functionality: Switching between Levels and Entering Dimensions 
 levelDependingOnHP :: Level -> Int -> Level 
 levelDependingOnHP level health 
-    | level == VictoriaLevel && health < 30 = LimboLevel
+    | level == VictoriaLevel && health < limboEnterTime = LimboLevel
     | level == LimboLevel && health <= 0 = HellLevel
-    | level == LimboLevel && health > 40 = VictoriaLevel
+    | level == LimboLevel && health > limboExitTime = VictoriaLevel
     | otherwise = level 
 
 -- Hell Level Functionality 

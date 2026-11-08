@@ -220,11 +220,12 @@ drawTimeClock world =
         ringThickness = 4
 
         -- Colour of clock depending on remaining time
+        -- Red in Limbo, purple when getting close to falling into it
         clockColour
-            | currentLevel world == LimboLevel || currentHP < 30 =
+            | currentLevel world == LimboLevel || currentHP < limboEnterTime =
                 makeColor 0.9 0.2 0.2 1
 
-            | currentHP <= 40 =
+            | currentHP < limboEnterTime + 10 =
                 makeColor 0.65 0.4 0.9 1
 
             | otherwise =
