@@ -13,7 +13,7 @@ handleInput :: Event -> World -> World
 
 -- Ignore all keyboard input after Game Over
 handleInput _ world
-    | gameState world == GameOver = world
+    | gameState world /= Playing = world
 
 -- Updating held keys for WASD movement
 handleInput (EventKey (Char key) Down _ _) world
@@ -149,6 +149,15 @@ enterLevel newLevel world =
         -- Check whether we're entering Hell
         enteringHell = newLevel == HellLevel
 
+        -- Starting a new Hell run from another dimension
+        startingHell = enteringHell && currentLevel world /= HellLevel
+
+        -- Reset layer only when entering Hell from another dimension
+        newHellLayer =
+            if startingHell
+                then 1
+                else hellLayer world
+
         -- Reset the timer only when entering Hell
         newHellTime =
             if enteringHell
@@ -179,6 +188,7 @@ enterLevel newLevel world =
         -- Store Hell trial values
         , hellTimeRemaining = newHellTime
         , hellKills = newHellKills
+        , hellLayer = newHellLayer
         }
 
 
@@ -212,31 +222,39 @@ checkHellTrial :: World -> World
 checkHellTrial world = 
     let 
         inHell = currentLevel world == HellLevel
+        -- Get current hell level
+        currentLayer = hellLayer world
         -- Check the kill requirement for the current Hell layer
         trialWon =
             hellKills world >= requiredKillsFor (hellLayer world)
         trialLost = hellTimeRemaining world <= 0
     in
-            if not inHell
-                then world 
-    else if trialWon
-        then 
-            let
-                p = player world
-                healedPlayer = p { health = 20 }
-
-                healedWorld = world { player = healedPlayer }
-
-            in enterLevel LimboLevel healedWorld
-    else if trialLost
-        then world { gameState = GameOver}
-    else world
+        if not inHell
+            then world 
+        else if trialWon
+            then 
+                -- Final layer completed
+                if currentLayer == finalHellLayer
+                    then world { gameState = Victory }
+                -- Move to the next layer
+                else
+                    let
+                        nextLayer = currentLayer + 1
+                        -- Store the new layer before entering Hell again
+                        updatedWorld = world { hellLayer = nextLayer }
+                    -- Reset timer, kills, mobs and position
+                    in enterLevel HellLevel updatedWorld
+        -- Trial failed
+        else if trialLost
+            then world { gameState = GameOver }
+        -- Trial ongoing
+        else world
 
 -- Updates the world at every frame
 updateWorld :: Float -> World -> World
 updateWorld dt world
     -- Return world with no updates
-    | gameState world == GameOver = world
+    | gameState world /= Playing = world
     | otherwise = updatePlayingWorld dt world
 
 updatePlayingWorld :: Float -> World -> World 

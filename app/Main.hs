@@ -52,7 +52,7 @@ drawLevel ms level (px, py) =
 handleLevelInput :: World -> Event -> World -> World
 handleLevelInput startingWorld event world
     -- Game Over
-    | gameState world == GameOver =
+    | gameState world /= Playing =
         case event of
             EventKey (SpecialKey KeyEnter) Down _ _ -> startingWorld
             _ -> world
@@ -205,6 +205,9 @@ main = do
 
                   -- Game Over overlay goes last so it covers everything
                 , drawGameOver world
+
+                  -- Victory screen after the boss is defeated
+                , drawVictory world
                 ])
 
         -- Handle movement, attacks, dash, rewind, level debug keys and restarting

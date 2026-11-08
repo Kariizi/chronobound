@@ -94,6 +94,7 @@ data Level
 data GameState 
     = Playing
     | GameOver
+    | Victory
     deriving (Show, Eq)
 
 initialMob :: Mob

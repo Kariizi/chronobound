@@ -270,6 +270,39 @@ drawGameOver world
             ]
     | otherwise = Blank
 
+-- Ending screen after defeating the boss, revealing the story's twist
+drawVictory :: World -> Picture
+drawVictory world
+    | gameState world == Victory =
+        let
+            -- Total run time as minutes:seconds
+            totalSeconds = floor (worldTime world) :: Int
+            (minutes, seconds) = totalSeconds `divMod` 60
+            padded n = if n < 10 then '0' : show n else show n
+            timeText = "Time survived: " ++ show minutes ++ ":" ++ padded seconds
+
+            gold = makeColor 1 0.8 0.3 1
+            pale = makeColor 0.85 0.85 0.9 1
+
+        in pictures
+            [ -- Darker overlay than Game Over so the story text stands out
+              color (makeColor 0 0 0 0.8) (rectangleSolid windowWidth windowHeight)
+
+              -- Title
+            , translate 0 110 (centredText 0.35 gold "YOU SURVIVED")
+
+              -- The README twist
+            , translate 0 40 (centredText 0.13 pale "The monsters you killed... were human.")
+            , translate 0 10 (centredText 0.13 pale "The Clock has chosen you as its servant.")
+
+              -- Run stats
+            , translate 0 (-45) (centredText 0.12 white timeText)
+
+              -- Restart hint
+            , translate 0 (-110) (centredText 0.15 white "Press ENTER to play again")
+            ]
+    | otherwise = Blank
+
 
 -- Which frame of an animation to show at time t (loops forever)
 frameAt :: Animation -> Float -> Art
