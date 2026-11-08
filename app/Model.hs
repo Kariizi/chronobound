@@ -36,7 +36,7 @@ data World = World
     , victoriaWave :: Int
     , victoriaTime :: Float
     , waveClearedTimer :: Float
-    -- Boss intro dialog: which line is showing, and how long it has been typing
+    -- Boss dialog - line showing and how long it has been typing
     , dialogIndex :: Int
     , dialogTimer :: Float
     } deriving (Show, Eq)
